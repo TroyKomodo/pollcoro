@@ -1,0 +1,18 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/pollcoro-targets.cmake")
+
+check_required_components(pollcoro)
+
+# Provide helpful message about available targets
+if(NOT pollcoro_FIND_QUIETLY)
+    message(STATUS "Found pollcoro ${pollcoro_VERSION}")
+    message(STATUS "  Available targets:")
+    message(STATUS "    pollcoro::pollcoro  - Header-only library")
+    if(TARGET pollcoro::pch)
+        message(STATUS "    pollcoro::pch       - With precompiled headers")
+    endif()
+    if(TARGET pollcoro::module)
+        message(STATUS "    pollcoro::module    - C++20 module")
+    endif()
+endif()

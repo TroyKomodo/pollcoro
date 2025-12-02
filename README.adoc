@@ -1,0 +1,359 @@
+= pollcoro
+:toc:
+:toc-placement!:
+:source-highlighter: highlight.js
+
+A header-only C++17 coroutine-ts library using *polling* instead of the traditional resume-based approach.
+
+Unlike most C++ coroutine libraries that rely on continuation-passing and resume callbacks, pollcoro uses an explicit polling model inspired by Rust's `Future` trait. Awaitables expose an `on_poll()` method that returns either `ready` or `pending`, giving you fine-grained control over execution.
+
+WARNING: This library is experimental and not yet production ready.
+
+toc::[]
+
+== Features
+
+* *Poll-based design* — explicit control over when and how coroutines make progress
+* *Header-only* — drop into your project with no compilation required
+* *C++20 modules* — optional module support for faster builds
+* *PCH support* — precompiled header target for improved compile times
+* *CMake integration* — modern CMake with `find_package` support
+
+== Installation
+
+=== CPM.cmake
+
+[source,cmake]
+----
+CPMAddPackage("gh:troykomodo/pollcoro#main")
+----
+
+== Quick Start
+
+[source,cpp]
+----
+#include <pollcoro/task.hpp>
+#include <pollcoro/block_on.hpp>
+#include <iostream>
+
+pollcoro::task<int> async_add(int a, int b) {
+    co_return a + b;
+}
+
+pollcoro::task<int> compute() {
+    int x = co_await async_add(10, 20);
+    int y = co_await async_add(x, 5);
+    co_return y;
+}
+
+int main() {
+    int result = pollcoro::block_on(compute());
+    std::cout << "Result: " << result << std::endl;  // Result: 35
+}
+----
+
+== Examples
+
+The `examples/` directory contains several demonstrations:
+
+* link:examples/fib.cc[fib.cc] — Concurrent Fibonacci using `wait_all` to compute both branches in parallel
+* link:examples/cc17.cc[cc17.cc] — Basic coroutine usage with `yield` for cooperative multitasking
+* link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
+* link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
+* link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
+
+== Core Concepts
+
+=== The Polling Model
+
+In pollcoro, every awaitable implements `on_poll(waker& w)` which returns a `pollable_state<T>`:
+
+[source,cpp]
+----
+struct my_awaitable {
+    pollcoro::pollable_state<int> on_poll(pollcoro::waker& w) {
+        if (/* ready */) {
+            return pollcoro::pollable_state<int>::ready(42);
+        }
+        // Store waker to notify when ready
+        stored_waker_ = w;
+        return pollcoro::pollable_state<int>::pending();
+    }
+};
+----
+
+The `waker` is a callback that signals "poll me again" — call it when your awaitable becomes ready.
+
+=== `pollcoro::awaitable` Concept
+
+Any type satisfying this concept can be `co_await`ed inside a `task`:
+
+[source,cpp]
+----
+template<typename T>
+concept awaitable = requires(T t, waker& w) {
+    { t.on_poll(w) } -> /* returns pollable_state<U> */;
+};
+----
+
+== API Reference
+
+=== `pollcoro::task<T>`
+
+The primary coroutine type. Lazy — doesn't run until polled.
+
+[source,cpp]
+----
+#include <pollcoro/task.hpp>
+
+pollcoro::task<int> fetch_value() {
+    co_return 42;
+}
+
+pollcoro::task<> do_work() {  // void task
+    co_await fetch_value();
+    co_return;
+}
+----
+
+=== `pollcoro::block_on`
+
+Synchronously runs an awaitable to completion, blocking the current thread.
+
+[source,cpp]
+----
+#include <pollcoro/block_on.hpp>
+
+int result = pollcoro::block_on(my_async_task());
+----
+
+=== `pollcoro::wait_all`
+
+Wait for multiple awaitables to complete. Returns a tuple of results (void results are filtered out).
+
+[source,cpp]
+----
+#include <pollcoro/wait_all.hpp>
+
+// Variadic form
+auto [a, b, c] = co_await pollcoro::wait_all(
+    task_returning_int(),
+    task_returning_string(),
+    task_returning_double()
+);
+
+// Iterator form (all same type)
+std::vector<pollcoro::task<int>> tasks = /* ... */;
+std::vector<int> results = co_await pollcoro::wait_all(tasks);
+----
+
+=== `pollcoro::wait_first`
+
+Wait for the first awaitable to complete. Returns the result and the index of the winner.
+
+[source,cpp]
+----
+#include <pollcoro/wait_first.hpp>
+
+// Variadic form
+auto [result, index] = co_await pollcoro::wait_first(task_a(), task_b(), task_c());
+
+// Iterator form
+std::vector<pollcoro::task<int>> tasks = /* ... */;
+auto [result, index] = co_await pollcoro::wait_first(tasks);
+----
+
+=== `pollcoro::single_event<T>`
+
+A one-shot event for bridging external code (threads, callbacks) into the coroutine world.
+
+[source,cpp]
+----
+#include <pollcoro/single_event.hpp>
+
+pollcoro::task<int> wait_for_callback() {
+    auto [awaitable, setter] = pollcoro::single_event<int>();
+    
+    // Pass setter to some external callback system
+    register_callback([setter = std::move(setter)](int value) mutable {
+        setter.set(value);
+    });
+    
+    co_return co_await awaitable;
+}
+
+// For void events:
+auto [awaitable, setter] = pollcoro::single_event<void>();
+setter.set();  // no argument needed
+----
+
+=== `pollcoro::map`
+
+Transform the result of an awaitable.
+
+[source,cpp]
+----
+#include <pollcoro/map.hpp>
+
+// Function form
+auto doubled = co_await pollcoro::map(get_number(), [](auto n) { return n * 2; });
+
+// Pipe syntax
+auto doubled = co_await (
+    get_number() | 
+        pollcoro::map([](auto n) {
+            return n * 2;
+        })
+);
+----
+
+=== `pollcoro::ref`
+
+Create a reference wrapper around an awaitable (useful when you can't move).
+
+[source,cpp]
+----
+#include <pollcoro/ref.hpp>
+
+pollcoro::task<int> my_task = /* ... */;
+co_await pollcoro::ref(my_task);  // polls my_task without moving it
+----
+
+=== `pollcoro::yield`
+
+Yield control back to the executor for a specified number of polls.
+
+[source,cpp]
+----
+#include <pollcoro/yield.hpp>
+
+co_await pollcoro::yield();     // yield once
+co_await pollcoro::yield(3);    // yield 3 times
+----
+
+=== `pollcoro::pollable_state<T>`
+
+The return type of `on_poll()`. Represents either a ready result or pending state.
+
+[source,cpp]
+----
+#include <pollcoro/pollable_state.hpp>
+
+// Creating states
+auto ready = pollcoro::pollable_state<int>::ready(42);
+auto pending = pollcoro::pollable_state<int>::pending();
+
+// Checking state
+if (state.is_ready()) {
+    int value = state.take_result();
+}
+
+// Mapping results
+auto mapped = std::move(state).map([](int n) { return n * 2; });
+----
+
+=== `pollcoro::waker`
+
+A callback that signals readiness. Store it and invoke when your awaitable becomes ready.
+
+[source,cpp]
+----
+#include <pollcoro/waker.hpp>
+
+class my_awaitable {
+    pollcoro::waker stored_waker_;
+    
+public:
+    pollcoro::pollable_state<void> on_poll(pollcoro::waker& w) {
+        if (is_ready()) {
+            return pollcoro::pollable_state<void>::ready();
+        }
+        stored_waker_ = w;
+        return pollcoro::pollable_state<void>::pending();
+    }
+    
+    void signal_ready() {
+        stored_waker_();  // wake up whoever is polling us
+    }
+};
+----
+
+== Build Options
+
+[cols="1,1,3"]
+|===
+| Option | Default | Description
+
+| `POLLCORO_INSTALL`
+| `${PROJECT_IS_TOP_LEVEL}`
+| Generate install targets
+
+| `POLLCORO_PCH`
+| `ON`
+| Enable precompiled headers target
+
+| `POLLCORO_MODULES`
+| `OFF`
+| Enable C++20 modules support
+|===
+
+=== Using PCH
+
+Link against `pollcoro::pch` for faster compilation:
+
+[source,cmake]
+----
+target_link_libraries(your_target PRIVATE pollcoro::pch)
+----
+
+=== Using Modules
+
+Link against `pollcoro::module` and import in your code:
+
+[source,cpp]
+----
+import pollcoro;
+----
+
+Requires CMake 3.28+ and a supporting compiler (GCC 14+, Clang 16+, MSVC 19.34+).
+
+== Writing Custom Awaitables
+
+Any type can be awaited if it implements `on_poll`:
+
+[source,cpp]
+----
+class timer_awaitable {
+    std::chrono::steady_clock::time_point deadline_;
+    pollcoro::waker waker_;
+    
+public:
+    explicit timer_awaitable(std::chrono::milliseconds duration)
+        : deadline_(std::chrono::steady_clock::now() + duration) {}
+    
+    pollcoro::pollable_state<void> on_poll(pollcoro::waker& w) {
+        if (std::chrono::steady_clock::now() >= deadline_) {
+            return pollcoro::pollable_state<void>::ready();
+        }
+        
+        waker_ = w;
+        // In a real implementation, register with a timer system
+        // that calls waker_() when the deadline passes
+        
+        return pollcoro::pollable_state<void>::pending();
+    }
+};
+
+auto sleep_for(std::chrono::milliseconds ms) {
+    return timer_awaitable(ms);
+}
+----
+
+== Requirements
+
+* C++17 compiler with coroutine-ts support
+* CMake 3.28+ (for modules support)
+
+== License
+
+MIT License — see link:LICENSE[LICENSE] for details.
