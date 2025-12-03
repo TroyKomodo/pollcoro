@@ -19,6 +19,68 @@ toc::[]
 * *PCH support* — precompiled header target for improved compile times
 * *CMake integration* — modern CMake with `find_package` support
 
+== Polling vs Resume-Based Coroutines
+
+Most C++ coroutine libraries use a *resume-based* model where an awaitable stores a continuation (the `coroutine_handle`) and calls `resume()` when ready. This creates implicit control flow — the awaitable decides when and where execution continues.
+
+[source,cpp]
+----
+// Resume-based: awaitable controls execution
+struct resume_awaitable {
+    std::coroutine_handle<> handle_;
+    
+    void await_suspend(std::coroutine_handle<> h) {
+        handle_ = h;
+        // Later, some callback does: handle_.resume();
+    }
+};
+----
+
+pollcoro uses a *poll-based* model inspired by Rust's `Future` trait. Instead of giving away control, the executor repeatedly polls awaitables, which return `ready` or `pending`:
+
+[source,cpp]
+----
+// Poll-based: executor controls execution
+struct poll_awaitable {
+    pollcoro::pollable_state<int> on_poll(pollcoro::waker& w) {
+        if (is_ready()) {
+            return pollcoro::pollable_state<int>::ready(result_);
+        }
+        waker_ = w;  // Store waker to signal "poll me again"
+        return pollcoro::pollable_state<int>::pending();
+    }
+};
+----
+
+=== Why Polling?
+
+[cols="1,2,2"]
+|===
+| Aspect | Resume-Based | Poll-Based
+
+| *Control*
+| Awaitable resumes coroutine directly
+| Executor decides when to poll
+
+| *Thread Safety*
+| Resume can happen on any thread
+| All polling happens on executor's thread
+
+| *Cancellation*
+| Requires explicit cancellation tokens
+| Just stop polling — no cleanup needed
+
+| *Composition*
+| Complex with multiple continuations
+| Natural — poll children, aggregate results
+
+| *Debugging*
+| Stack traces show resume site
+| Stack traces show poll call chain
+|===
+
+The polling model trades some efficiency (extra poll calls) for predictability and simpler reasoning about control flow.
+
 == Installation
 
 === CPM.cmake
@@ -57,7 +119,7 @@ int main() {
 The `examples/` directory contains several demonstrations:
 
 * link:examples/fib.cc[fib.cc] — Concurrent Fibonacci using `wait_all` to compute both branches in parallel
-* link:examples/cc17.cc[cc17.cc] — Basic coroutine usage with `yield` for cooperative multitasking
+* link:examples/cc17.cc[cc17.cc] — Basic coroutine usage in C++17
 * link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
 * link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
 * link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
