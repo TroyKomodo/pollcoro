@@ -46,7 +46,7 @@ struct poll_awaitable {
         if (is_ready()) {
             return pollcoro::pollable_state<int>::ready(result_);
         }
-        waker_ = w;  // Store waker to signal "poll me again"
+        waker_ = w.clone();  // Store waker to signal "poll me again"
         return pollcoro::pollable_state<int>::pending();
     }
 };
@@ -138,7 +138,7 @@ struct my_awaitable {
             return pollcoro::pollable_state<int>::ready(42);
         }
         // Store waker to notify when ready
-        stored_waker_ = w;
+        stored_waker_ = w.clone();
         return pollcoro::pollable_state<int>::pending();
     }
 };
@@ -330,7 +330,7 @@ public:
         if (is_ready()) {
             return pollcoro::pollable_state<void>::ready();
         }
-        stored_waker_ = w;
+        stored_waker_ = w.clone();
         return pollcoro::pollable_state<void>::pending();
     }
     
@@ -338,6 +338,31 @@ public:
         stored_waker_();  // wake up whoever is polling us
     }
 };
+----
+
+You can create your own waker types by implementing the `wake` and `clone` methods.
+
+[source,cpp]
+----
+class my_waker_t {
+    void wake() {
+        // implementation
+    }
+
+    // Optional method to clone the waker
+    // If not provided the waker is assumed to be trivially copyable
+    waker clone() {
+        return /* implementation */;
+    }
+}
+
+auto my_waker = my_waker_t();
+auto waker = pollcoro::waker(my_waker);
+auto some_task = /* ... */;
+
+auto result = some_task.on_poll(waker);
+// do something with the result
+
 ----
 
 == Build Options

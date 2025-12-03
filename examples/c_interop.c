@@ -10,7 +10,7 @@ struct waker_data_t {
     bool notified;
 };
 
-void waker(void* data) {
+void waker_wake(void* data) {
     printf("waker called\n");
     struct waker_data_t* wd = (struct waker_data_t*)data;
     mtx_lock(&wd->mutex);
@@ -28,6 +28,8 @@ int main() {
     cnd_init(&wd.condition);
     wd.notified = true;
 
+    struct waker_vtable_t waker_vtable = {waker_wake, NULL, NULL};
+
     int polls = 0;
     future_poll_result_t result = FUTURE_POLL_PENDING;
     while (result == FUTURE_POLL_PENDING) {
@@ -36,7 +38,8 @@ int main() {
             wd.notified = false;
             mtx_unlock(&wd.mutex);
             printf("polling %d\n", polls++);
-            result = future_poll(future, waker, &wd);
+            raw_waker_t waker = {&wd, &waker_vtable};
+            result = future_poll(future, waker);
             mtx_lock(&wd.mutex);
         }
 

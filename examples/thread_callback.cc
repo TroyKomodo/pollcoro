@@ -1,16 +1,16 @@
 /*
-* A example using a thread callback
-* Notice how even though we call `setter.set(42)` 
-* in a different thread, the task is resumed on 
-* the main thread.
-*/
+ * A example using a thread callback
+ * Notice how even though we call `setter.set(42)`
+ * in a different thread, the task is resumed on
+ * the main thread.
+ */
 
-#include <pollcoro/task.hpp>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/yield.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/single_event.hpp>
 #include <iostream>
+#include <pollcoro/block_on.hpp>
+#include <pollcoro/single_event.hpp>
+#include <pollcoro/task.hpp>
+#include <pollcoro/wait_all.hpp>
+#include <pollcoro/yield.hpp>
 #include <thread>
 
 template<typename... Args>
@@ -18,7 +18,6 @@ void log(Args&&... args) {
     std::cout << "[" << std::this_thread::get_id() << "] ";
     (std::cout << ... << args) << std::endl;
 }
-
 
 pollcoro::task<> do_work() {
     log("Doing work...");

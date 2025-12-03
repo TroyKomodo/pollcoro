@@ -1,12 +1,12 @@
 /*
-* A example using C++17 coroutines
-*/
+ * A example using C++17 coroutines
+ */
 
-#include <pollcoro/task.hpp>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/yield.hpp>
-#include <pollcoro/wait_all.hpp>
 #include <iostream>
+#include <pollcoro/block_on.hpp>
+#include <pollcoro/task.hpp>
+#include <pollcoro/wait_all.hpp>
+#include <pollcoro/yield.hpp>
 
 pollcoro::task<> do_work() {
     std::cout << "Doing work..." << std::endl;
