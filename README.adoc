@@ -1336,6 +1336,18 @@ auto sum = co_await pollcoro::fold(
 );
 ----
 
+== Not Yet Implemented
+
+The following features are planned but not yet available:
+
+* *I/O operations* — file reading/writing, sockets, networking
+* *Multi-threaded executors* — running tasks across multiple threads
+* *Detached tasks* — tasks that get polled to completion without explicitly waiting for them
+* *Resumable coroutine bridge* — interoperability with resume-based C++ coroutine libraries
+* *More bindings examples* — interoperability with Rust, Python, and other languages.
+
+Contributions welcome!
+
 == Requirements
 
 * C++17 compiler with coroutine-ts support
