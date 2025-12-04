@@ -9,8 +9,8 @@
 #include <variant>
 #endif
 
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -75,16 +75,16 @@ POLLCORO_EXPORT namespace pollcoro {
                 return ready_;
             }
 
-            pollable_state<T> poll_result() {
+            awaitable_state<T> poll_result() {
                 std::unique_lock lock(mutex_);
                 if (ready_) {
                     if constexpr (std::is_void_v<T>) {
-                        return pollable_state<T>::ready();
+                        return awaitable_state<T>::ready();
                     } else {
-                        return pollable_state<T>::ready(this->take_result());
+                        return awaitable_state<T>::ready(this->take_result());
                     }
                 }
-                return pollable_state<T>::pending();
+                return awaitable_state<T>::pending();
             }
         };
 
@@ -136,7 +136,7 @@ POLLCORO_EXPORT namespace pollcoro {
             return std::make_tuple(std::move(awaitable), setter(state));
         }
 
-        pollable_state<T> on_poll(const waker& w) {
+        awaitable_state<T> poll(const waker& w) {
             state_->set_waker(w);
             return state_->poll_result();
         }

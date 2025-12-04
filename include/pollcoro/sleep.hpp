@@ -1,8 +1,7 @@
 #pragma once
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 #ifndef POLLCORO_MODULE_EXPORT
@@ -87,9 +86,9 @@ POLLCORO_EXPORT namespace pollcoro {
             return *this;
         }
 
-        pollable_state<void> on_poll(const waker& w) {
+        awaitable_state<> poll(const waker& w) {
             if (timer_.now() >= deadline_) {
-                return pollable_state<void>::ready();
+                return awaitable_state<>::ready();
             }
 
             std::lock_guard lock(shared_->mutex);
@@ -102,7 +101,7 @@ POLLCORO_EXPORT namespace pollcoro {
                 });
             }
 
-            return pollable_state<void>::pending();
+            return awaitable_state<>::pending();
         }
     };
 

@@ -48,3 +48,11 @@ set_target_properties(cxx_cppcoro_interop PROPERTIES CXX_STANDARD 20)
 add_executable(timer_sleep timer_sleep.cc)
 target_link_libraries(timer_sleep PRIVATE pollcoro::pollcoro)
 set_target_properties(timer_sleep PROPERTIES CXX_STANDARD 20)
+
+add_executable(exceptions exceptions.cc)
+target_link_libraries(exceptions PRIVATE pollcoro::pollcoro)
+set_target_properties(exceptions PROPERTIES CXX_STANDARD 20)
+
+add_executable(generator generator.cc)
+target_link_libraries(generator PRIVATE pollcoro::pollcoro)
+set_target_properties(generator PROPERTIES CXX_STANDARD 20)

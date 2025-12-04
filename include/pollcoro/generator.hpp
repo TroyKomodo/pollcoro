@@ -9,27 +9,26 @@
 #endif
 
 #include "awaitable.hpp"
-#include "detail/promise.hpp"
 #include "export.hpp"
+#include "gen_awaitable.hpp"
+#include "task.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
-    namespace detail {}  // namespace detail
-
-    template<typename T = void>
-    class task {
+    template<typename T>
+    class generator {
       public:
-        using promise_type = detail::promise_type<task, T, detail::task_storage<T>>;
+        using promise_type = detail::promise_type<generator, T, detail::generator_storage<T>>;
 
-        explicit task(std::coroutine_handle<promise_type> h, bool destroy_on_drop = true)
+        explicit generator(std::coroutine_handle<promise_type> h, bool destroy_on_drop = true)
             : handle_(h), destroy_on_drop_(destroy_on_drop) {}
 
-        task(task&& other) noexcept
+        generator(generator&& other) noexcept
             : handle_(other.handle_), destroy_on_drop_(other.destroy_on_drop_) {
             other.handle_ = nullptr;
         }
 
-        task& operator=(task&& other) noexcept {
+        generator& operator=(generator&& other) noexcept {
             if (this != &other) {
                 if (handle_ && destroy_on_drop_) {
                     handle_.destroy();
@@ -41,16 +40,16 @@ POLLCORO_EXPORT namespace pollcoro {
             return *this;
         }
 
-        task(const task&) = delete;
-        task& operator=(const task&) = delete;
+        generator(const generator&) = delete;
+        generator& operator=(const generator&) = delete;
 
-        ~task() {
+        ~generator() {
             if (handle_ && destroy_on_drop_) {
                 handle_.destroy();
             }
         }
 
-        awaitable_state<T> poll(const waker& w) {
+        gen_awaitable_state<T> poll_next(const waker& w) {
             auto& promise = handle_.promise();
             bool resumed = false;
             if (!is_ready()) {
@@ -65,25 +64,19 @@ POLLCORO_EXPORT namespace pollcoro {
                 }
             }
 
+            if (promise.has_value()) {
+                return gen_awaitable_state<T>::ready(promise.take_result());
+            }
+
             if (is_ready()) {
-                if constexpr (std::is_void_v<T>) {
-                    return awaitable_state<T>::ready();
-                } else {
-                    return awaitable_state<T>::ready(promise.take_result());
-                }
+                return gen_awaitable_state<T>::done();
             }
 
             if (resumed) {
                 w.wake();
             }
 
-            return awaitable_state<T>::pending();
-        }
-
-        // The task will be left in an empty state after this call.
-        // Useful if you want to work with the underlying coroutine handle.
-        std::coroutine_handle<promise_type> release() && noexcept {
-            return std::exchange(handle_, nullptr);
+            return gen_awaitable_state<T>::pending();
         }
 
       private:

@@ -25,8 +25,8 @@ void future_destroy(future_t* future) {
 }
 
 future_poll_result_t future_poll(future_t* future, waker_t waker) {
-    return future->task.on_poll({waker.data, waker.wake_function}).is_ready() ? FUTURE_POLL_READY
-                                                                              : FUTURE_POLL_PENDING;
+    return future->task.poll({waker.data, waker.wake_function}).is_ready() ? FUTURE_POLL_READY
+                                                                           : FUTURE_POLL_PENDING;
 }
 
 void future_wait_until_ready(future_t* future) {

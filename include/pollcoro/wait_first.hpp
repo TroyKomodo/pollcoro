@@ -9,9 +9,8 @@
 #include <vector>
 #endif
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -31,21 +30,21 @@ POLLCORO_EXPORT namespace pollcoro {
         explicit wait_first_awaitable(Awaitables... awaitables)
             : awaitables_(std::move(awaitables)...) {}
 
-        pollable_state<result_type> on_poll(const waker& w) {
+        awaitable_state<result_type> poll(const waker& w) {
             return get_first_ready_result(std::index_sequence_for<Awaitables...>{}, w);
         }
 
       private:
         template<size_t I>
         auto try_get_result(const waker& w) {
-            return std::get<I>(awaitables_).on_poll(w).map([](auto result) {
+            return std::get<I>(awaitables_).poll(w).map([](auto result) {
                 return std::make_tuple(std::move(result), I);
             });
         }
 
         template<size_t... Is>
         auto get_first_ready_result(std::index_sequence<Is...>, const waker& w) {
-            pollable_state<result_type> result = pollable_state<result_type>::pending();
+            awaitable_state<result_type> result = awaitable_state<result_type>::pending();
             ((result = try_get_result<Is>(w), result.is_ready()) || ...);
             return std::move(result);
         }
@@ -67,23 +66,23 @@ POLLCORO_EXPORT namespace pollcoro {
 
         explicit wait_first_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
-        pollable_state<result_type> on_poll(const waker& w) {
+        awaitable_state<result_type> poll(const waker& w) {
             size_t i = 0;
             for (auto& awaitable : awaitables_) {
-                auto state = awaitable.on_poll(w);
+                auto state = awaitable.poll(w);
                 if (state.is_ready()) {
                     if constexpr (std::is_void_v<result_t>) {
                         state.get_result();
-                        return pollable_state<result_type>::ready(std::make_tuple(result_t{}, i));
+                        return awaitable_state<result_type>::ready(std::make_tuple(result_t{}, i));
                     } else {
-                        return pollable_state<result_type>::ready(
+                        return awaitable_state<result_type>::ready(
                             std::make_tuple(state.take_result(), i)
                         );
                     }
                 }
                 i++;
             }
-            return pollable_state<result_type>::pending();
+            return awaitable_state<result_type>::pending();
         }
 
       private:

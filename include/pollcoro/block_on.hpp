@@ -5,7 +5,7 @@
 #include <mutex>
 #endif
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
 #include "waker.hpp"
 
@@ -34,7 +34,7 @@ POLLCORO_EXPORT namespace pollcoro {
             wd.notified = false;
             lock.unlock();
 
-            auto result = awaitable.on_poll(waker(wd));
+            auto result = awaitable.poll(waker(wd));
             if (result.is_ready()) {
                 return result.take_result();
             }

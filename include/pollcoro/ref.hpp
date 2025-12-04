@@ -1,8 +1,7 @@
 #pragma once
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -15,8 +14,8 @@ POLLCORO_EXPORT namespace pollcoro {
       public:
         ref_awaitable(Awaitable& awaitable) : awaitable(awaitable) {}
 
-        pollable_state<awaitable_result_t<Awaitable>> on_poll(const waker& w) {
-            return awaitable.on_poll(w);
+        awaitable_state<awaitable_result_t<Awaitable>> poll(const waker& w) {
+            return awaitable.poll(w);
         }
     };
 

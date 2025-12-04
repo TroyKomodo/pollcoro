@@ -5,7 +5,7 @@
 
 A header-only C++17 coroutine-ts library using *polling* instead of the traditional resume-based approach.
 
-Unlike most C++ coroutine libraries that rely on continuation-passing and resume callbacks, pollcoro uses an explicit polling model inspired by Rust's `Future` trait. Awaitables expose an `on_poll()` method that returns either `ready` or `pending`, giving you fine-grained control over execution.
+Unlike most C++ coroutine libraries that rely on continuation-passing and resume callbacks, pollcoro uses an explicit polling model inspired by Rust's `Future` trait. Awaitables expose an `poll()` method that returns either `ready` or `pending`, giving you fine-grained control over execution.
 
 WARNING: This library is experimental and not yet production ready.
 
@@ -15,6 +15,7 @@ toc::[]
 
 * *Poll-based design* — explicit control over when and how coroutines make progress
 * *Header-only* — drop into your project with no compilation required
+* *Async generators* — `generator<T>` with `co_yield`, `co_await`, and yield-from support
 * *C++20 modules* — optional module support for faster builds
 * *PCH support* — precompiled header target for improved compile times
 * *CMake integration* — modern CMake with `find_package` support
@@ -42,12 +43,12 @@ pollcoro uses a *poll-based* model inspired by Rust's `Future` trait. Instead of
 ----
 // Poll-based: executor controls execution
 struct poll_awaitable {
-    pollcoro::pollable_state<int> on_poll(pollcoro::waker& w) {
+    pollcoro::awaitable_state<int> poll(const pollcoro::waker& w) {
         if (is_ready()) {
-            return pollcoro::pollable_state<int>::ready(result_);
+            return pollcoro::awaitable_state<int>::ready(result_);
         }
-        waker_ = w.clone();  // Store waker to signal "poll me again"
-        return pollcoro::pollable_state<int>::pending();
+        waker_ = w;  // Store waker to signal "poll me again"
+        return pollcoro::awaitable_state<int>::pending();
     }
 };
 ----
@@ -119,27 +120,31 @@ int main() {
 The `examples/` directory contains several demonstrations:
 
 * link:examples/fib.cc[fib.cc] — Concurrent Fibonacci using `wait_all` to compute both branches in parallel
+* link:examples/generator.cc[generator.cc] — Async generators with `co_yield`, `co_await`, and yield-from
 * link:examples/cc17.cc[cc17.cc] — Basic coroutine usage in C++17
 * link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
 * link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
 * link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
+* link:examples/exceptions.cc[exceptions.cc] — Exception handling and propagation in coroutines
+* link:examples/timer_sleep.cc[timer_sleep.cc] — Using `sleep_until` with a custom timer implementation
+* link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Interoperability with cppcoro (resume-based library)
 
 == Core Concepts
 
 === The Polling Model
 
-In pollcoro, every awaitable implements `on_poll(waker& w)` which returns a `pollable_state<T>`:
+In pollcoro, every awaitable implements `poll(waker& w)` which returns a `awaitable_state<T>`:
 
 [source,cpp]
 ----
 struct my_awaitable {
-    pollcoro::pollable_state<int> on_poll(pollcoro::waker& w) {
+    pollcoro::awaitable_state<int> poll(const pollcoro::waker& w) {
         if (/* ready */) {
-            return pollcoro::pollable_state<int>::ready(42);
+            return pollcoro::awaitable_state<int>::ready(42);
         }
         // Store waker to notify when ready
-        stored_waker_ = w.clone();
-        return pollcoro::pollable_state<int>::pending();
+        stored_waker_ = w;
+        return pollcoro::awaitable_state<int>::pending();
     }
 };
 ----
@@ -153,9 +158,68 @@ Any type satisfying this concept can be `co_await`ed inside a `task`:
 [source,cpp]
 ----
 template<typename T>
-concept awaitable = requires(T t, waker& w) {
-    { t.on_poll(w) } -> /* returns pollable_state<U> */;
+concept awaitable = requires(T t, const waker& w) {
+    { t.poll(w) } -> /* returns awaitable_state<U> */;
 };
+----
+
+=== `pollcoro::gen_awaitable` Concept
+
+Any type satisfying this concept can be used with `co_yield` inside a `generator` (yield-from):
+
+[source,cpp]
+----
+template<typename T>
+concept gen_awaitable = requires(T t, const waker& w) {
+    { t.poll_next(w) } -> /* returns gen_awaitable_state<U> */;
+};
+----
+
+The `generator<T>` type itself satisfies `gen_awaitable`, enabling yield-from composition.
+
+=== Exception Handling
+
+Exceptions in pollcoro work just like normal C++ exceptions. They bubble up through `co_await` the same way they would through regular function calls. If nothing catches them, they propagate all the way up to the poll site (e.g., `block_on`).
+
+[source,cpp]
+----
+pollcoro::task<int> might_throw(int value) {
+    if (value < 0) {
+        throw std::runtime_error("negative value");
+    }
+    co_return value * 2;
+}
+
+pollcoro::task<int> caller() {
+    try {
+        co_return co_await might_throw(-5);  // Exception caught here
+    } catch (const std::runtime_error& e) {
+        std::cout << "Caught: " << e.what() << std::endl;
+        co_return 0;
+    }
+}
+----
+
+If an exception isn't caught, it continues bubbling up through each `co_await` until it reaches `block_on`:
+
+[source,cpp]
+----
+pollcoro::task<int> inner() {
+    throw std::runtime_error("something went wrong");
+    co_return 42;
+}
+
+pollcoro::task<int> outer() {
+    co_return co_await inner();  // Exception passes through
+}
+
+int main() {
+    try {
+        pollcoro::block_on(outer());  // Exception caught here
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Uncaught exception: " << e.what() << std::endl;
+    }
+}
 ----
 
 == API Reference
@@ -178,6 +242,115 @@ pollcoro::task<> do_work() {  // void task
 }
 ----
 
+For advanced use cases, you can extract the underlying coroutine handle:
+
+[source,cpp]
+----
+auto task = fetch_value();
+auto handle = std::move(task).release();  // task is now empty
+// Work directly with the coroutine handle
+handle.destroy();  // You're responsible for cleanup
+----
+
+=== `pollcoro::generator<T>`
+
+An async generator that produces a sequence of values. Supports `co_yield` for values, `co_await` for async operations, and yield-from for delegating to other generators.
+
+[source,cpp]
+----
+#include <pollcoro/generator.hpp>
+
+// Simple generator
+pollcoro::generator<int> fibonacci() {
+    int a = 0, b = 1;
+    while (true) {
+        co_yield b;
+        auto tmp = a;
+        a = b;
+        b += tmp;
+    }
+}
+
+// Generator with async operations
+pollcoro::generator<int> async_counter(int count) {
+    for (int i = 0; i < count; ++i) {
+        co_await pollcoro::yield();  // Async work
+        co_yield i;
+    }
+}
+
+// Yield-from: delegate to another generator
+pollcoro::generator<int> range(int start, int end) {
+    for (int i = start; i < end; ++i) {
+        co_yield i;
+    }
+}
+
+pollcoro::generator<int> combined() {
+    co_yield 100;              // Single value
+    co_yield range(0, 3);      // Yield from generator: 0, 1, 2
+    co_yield 200;
+}
+----
+
+=== `pollcoro::gen_next`
+
+Convert a generator into an awaitable that returns `std::optional<T>`. Returns `std::nullopt` when the generator is exhausted.
+
+[source,cpp]
+----
+#include <pollcoro/gen_next.hpp>
+
+pollcoro::task<> consume_generator() {
+    auto gen = fibonacci();
+    while (auto value = co_await pollcoro::gen_next(gen)) {
+        std::cout << *value << " ";
+        if (*value > 100) break;
+    }
+}
+----
+
+=== `pollcoro::gen`
+
+Lightweight helpers to create generator-like awaitables from iterators or containers. Useful for yield-from with existing collections.
+
+[source,cpp]
+----
+#include <pollcoro/gen.hpp>
+
+// From iterator pair
+std::vector<int> vec = {1, 2, 3};
+co_yield pollcoro::gen(vec.begin(), vec.end());
+
+// From range/container
+co_yield pollcoro::gen(std::array{4, 5, 6});
+co_yield pollcoro::gen(vec);
+----
+
+=== `pollcoro::gen_awaitable_state<T>`
+
+The return type of `poll_next()` for generators. Represents ready (with value), pending, or done states.
+
+[source,cpp]
+----
+#include <pollcoro/gen_awaitable.hpp>
+
+// Creating states
+auto ready = pollcoro::gen_awaitable_state<int>::ready(42);
+auto pending = pollcoro::gen_awaitable_state<int>::pending();
+auto done = pollcoro::gen_awaitable_state<int>::done();
+
+// Checking state
+if (state.is_ready()) {
+    int value = state.take_result();
+} else if (state.is_done()) {
+    // Generator exhausted
+}
+
+// Mapping results
+auto mapped = std::move(state).map([](int n) { return n * 2; });
+----
+
 === `pollcoro::block_on`
 
 Synchronously runs an awaitable to completion, blocking the current thread.
@@ -189,14 +362,28 @@ Synchronously runs an awaitable to completion, blocking the current thread.
 int result = pollcoro::block_on(my_async_task());
 ----
 
-=== `pollcoro::sleep_for`
+=== `pollcoro::sleep_for` / `pollcoro::sleep_until`
 
-Sleep for a specified duration.
+Sleep for a specified duration or until a deadline. Requires a timer type that satisfies the `timer` concept.
 
 [source,cpp]
 ----
 #include <pollcoro/sleep.hpp>
 
+// Timer concept requirements:
+template<typename Timer>
+concept timer = requires(Timer timer) {
+    typename Timer::duration;
+    typename Timer::time_point;
+    { timer.now() } -> std::same_as<typename Timer::time_point>;
+    { timer.register_callback(deadline, callback) } -> std::same_as<void>;
+};
+----
+
+Example timer implementation:
+
+[source,cpp]
+----
 template<typename Clock = std::chrono::steady_clock>
 struct my_timer {
     using duration = typename Clock::duration;
@@ -206,17 +393,32 @@ struct my_timer {
         return Clock::now();
     }
 
-    void register_callback(time_point deadline, std::function<void()> callback) {
-        // Maybe use a thread pool, or some other efficent way to schedule the callback
+    void register_callback(const time_point& deadline, std::function<void()> callback) {
+        // Use a thread pool or other efficient scheduling mechanism
         std::thread([deadline, callback] {
             std::this_thread::sleep_until(deadline);
             callback();
         }).detach();
     }
-}
+};
+----
 
+Usage:
+
+[source,cpp]
+----
+// Sleep for a duration
 co_await pollcoro::sleep_for<my_timer<>>(std::chrono::seconds(1));
-co_await pollcoro::sleep_until<my_timer<>>(std::chrono::steady_clock::now() + std::chrono::seconds(5));
+
+// Sleep until a deadline
+co_await pollcoro::sleep_until<my_timer<>>(
+    std::chrono::steady_clock::now() + std::chrono::seconds(5)
+);
+
+// Pass a timer instance directly
+my_timer<> timer;
+co_await pollcoro::sleep_for(std::chrono::seconds(1), std::move(timer));
+co_await pollcoro::sleep_until(deadline, std::move(timer));
 ----
 
 === `pollcoro::wait_all`
@@ -311,6 +513,26 @@ pollcoro::task<int> my_task = /* ... */;
 co_await pollcoro::ref(my_task);  // polls my_task without moving it
 ----
 
+=== `pollcoro::generic`
+
+Type-erased awaitable wrapper. Useful when you need to store awaitables of different types in a container or return different awaitable types from a function.
+
+[source,cpp]
+----
+#include <pollcoro/generic.hpp>
+
+// Wrap any awaitable into a type-erased container
+pollcoro::generic_awaitable<int> wrapped = pollcoro::generic(some_task());
+
+// Store different awaitable types uniformly
+std::vector<pollcoro::generic_awaitable<int>> tasks;
+tasks.push_back(pollcoro::generic(task_a()));
+tasks.push_back(pollcoro::generic(task_b()));
+
+// Can be awaited like any other awaitable
+int result = co_await wrapped;
+----
+
 === `pollcoro::yield`
 
 Yield control back to the executor for a specified number of polls.
@@ -323,17 +545,17 @@ co_await pollcoro::yield();     // yield once
 co_await pollcoro::yield(3);    // yield 3 times
 ----
 
-=== `pollcoro::pollable_state<T>`
+=== `pollcoro::awaitable_state<T>`
 
-The return type of `on_poll()`. Represents either a ready result or pending state.
+The return type of `poll()`. Represents either a ready result or pending state.
 
 [source,cpp]
 ----
-#include <pollcoro/pollable_state.hpp>
+#include <pollcoro/awaitable_state.hpp>
 
 // Creating states
-auto ready = pollcoro::pollable_state<int>::ready(42);
-auto pending = pollcoro::pollable_state<int>::pending();
+auto ready = pollcoro::awaitable_state<int>::ready(42);
+auto pending = pollcoro::awaitable_state<int>::pending();
 
 // Checking state
 if (state.is_ready()) {
@@ -356,12 +578,12 @@ class my_awaitable {
     pollcoro::waker stored_waker_;
     
 public:
-    pollcoro::pollable_state<void> on_poll(const pollcoro::waker& w) {
+    pollcoro::awaitable_state<void> poll(const pollcoro::waker& w) {
         if (is_ready()) {
-            return pollcoro::pollable_state<void>::ready();
+            return pollcoro::awaitable_state<void>::ready();
         }
         stored_waker_ = w;
-        return pollcoro::pollable_state<void>::pending();
+        return pollcoro::awaitable_state<void>::pending();
     }
     
     void signal_ready() {
@@ -384,20 +606,29 @@ class my_waker_t {
 auto my_waker = my_waker_t();
 auto some_task = /* ... */;
 
-auto result = some_task.on_poll(pollcoro::waker(my_waker));
+auto result = some_task.poll(pollcoro::waker(my_waker));
 // do something with the result
 
 ----
 
-==== Note about lifetimes and ownership
+==== Waker Lifetimes
 
-The `waker` class does not have a destructor or any clone methods. This is because wakers need to be valid as long as the `awaitable` is valid. When the `awaitable` is destroyed the waker can be destroyed as well.
+A `waker` is a lightweight handle (function pointer + data pointer) — it doesn't own the underlying wake mechanism. The executor owns the actual wake implementation and passes a waker to your awaitable on each poll.
 
-The single_event task is a good example of this, there is a shared_ptr between the awaitable and the setter. 
+The executor must keep its waker valid until the awaitable has completed or been canceled (i.e., until the awaitable's destructor returns). This ensures the awaitable can safely call the waker during cleanup if needed.
 
-If the awaitable (receiver) is destroyed, the waker inside the `setter` will be unset so that if another thread calls `setter.set()`, the waker is not called.
+When an awaitable stores a waker to call later, the awaitable is responsible for ensuring the waker isn't called after the awaitable is canceled. This matters when external code (another thread, a callback) might try to trigger a wake after the awaitable is gone.
 
-Its up to the awaitable to ensure that the waker is not called after it has been destroyed.
+The `single_event` implementation demonstrates a safe pattern: a `shared_ptr` connects the awaitable and the setter. When the awaitable is destroyed, it clears the stored waker. If another thread later calls `setter.set()`, it finds an empty waker and does nothing.
+
+[source,cpp]
+----
+// Safe pattern: clear waker on destruction
+~my_awaitable() {
+    std::lock_guard lock(shared_->mutex);
+    shared_->waker = pollcoro::waker();  // Clear to prevent stale calls
+}
+----
 
 == Build Options
 
@@ -414,8 +645,16 @@ Its up to the awaitable to ensure that the waker is not called after it has been
 | Enable precompiled headers target
 
 | `POLLCORO_MODULES`
-| `OFF`
+| `ON`
 | Enable C++20 modules support
+
+| `POLLCORO_TESTS`
+| `${PROJECT_IS_TOP_LEVEL}`
+| Build test suite
+
+| `POLLCORO_EXAMPLES`
+| `${PROJECT_IS_TOP_LEVEL}`
+| Build example programs
 |===
 
 === Using PCH
@@ -488,12 +727,13 @@ public:
         return *this;
     };
     
-    pollcoro::pollable_state<void> on_poll(pollcoro::waker& w) {
+    pollcoro::awaitable_state<void> poll(const pollcoro::waker& w) {
         if (std::chrono::steady_clock::now() >= deadline_) {
-            return pollcoro::pollable_state<void>::ready();
+            return pollcoro::awaitable_state<void>::ready();
         }
         
-        waker_->store(w, std::memory_order_release);
+        std::lock_guard lock(shared_->mutex);
+        shared_->waker = w;
         if (!started_) {
             started_ = true;
             some_cool_timer_api.register_callback([shared = shared_]() {
@@ -502,7 +742,7 @@ public:
             });
         }
         
-        return pollcoro::pollable_state<void>::pending();
+        return pollcoro::awaitable_state<void>::pending();
     }
 };
 

@@ -5,15 +5,14 @@
 #include <utility>
 #endif
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<typename T = void>
     class generic_awaitable {
-        pollable_state<T> (*on_poll_)(void* awaitable, const waker& w) = nullptr;
+        awaitable_state<T> (*on_poll_)(void* awaitable, const waker& w) = nullptr;
         std::unique_ptr<void, void (*)(void*)> awaitable_ = {nullptr, nullptr};
 
       public:
@@ -28,11 +27,11 @@ POLLCORO_EXPORT namespace pollcoro {
                 },
             };
             on_poll_ = [](void* awaitable_ptr, const waker& w) {
-                return static_cast<Awaitable*>(awaitable_ptr)->on_poll(w);
+                return static_cast<Awaitable*>(awaitable_ptr)->poll(w);
             };
         }
 
-        pollable_state<T> on_poll(const waker& w) {
+        awaitable_state<T> poll(const waker& w) {
             return on_poll_(awaitable_.get(), w);
         }
     };

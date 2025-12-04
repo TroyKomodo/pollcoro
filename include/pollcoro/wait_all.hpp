@@ -12,9 +12,8 @@
 #include <vector>
 #endif
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -108,15 +107,15 @@ POLLCORO_EXPORT namespace pollcoro {
         explicit wait_all_awaitable(Awaitables... awaitables)
             : awaitables_(std::move(awaitables)...) {}
 
-        pollable_state<result_type> on_poll(const waker& w) {
+        awaitable_state<result_type> poll(const waker& w) {
             bool all_ready = poll_all(w, std::index_sequence_for<Awaitables...>{});
 
             if (all_ready) {
-                return pollable_state<result_type>::ready(
+                return awaitable_state<result_type>::ready(
                     build_result(std::index_sequence_for<Awaitables...>{})
                 );
             }
-            return pollable_state<result_type>::pending();
+            return awaitable_state<result_type>::pending();
         }
 
       private:
@@ -149,7 +148,7 @@ POLLCORO_EXPORT namespace pollcoro {
             }
 
             // Poll the awaitable
-            auto state = awaitable.on_poll(w);
+            auto state = awaitable.poll(w);
             if (state.is_ready()) {
                 if constexpr (std::is_void_v<result_t>) {
                     stored = true;
@@ -206,7 +205,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         explicit wait_all_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
-        pollable_state<result_type> on_poll(const waker& w) {
+        awaitable_state<result_type> poll(const waker& w) {
             size_t i = 0;
             for (auto& awaitable : awaitables_) {
                 if (results_.has_result(i)) {
@@ -214,7 +213,7 @@ POLLCORO_EXPORT namespace pollcoro {
                     continue;
                 }
 
-                auto state = awaitable.on_poll(w);
+                auto state = awaitable.poll(w);
                 if (state.is_ready()) {
                     if constexpr (std::is_void_v<result_type>) {
                         results_.insert(i);
@@ -226,12 +225,12 @@ POLLCORO_EXPORT namespace pollcoro {
             }
             if (results_.size() == awaitables_.size()) {
                 if constexpr (std::is_void_v<result_type>) {
-                    return pollable_state<result_type>::ready();
+                    return awaitable_state<result_type>::ready();
                 } else {
-                    return pollable_state<result_type>::ready(results_.build());
+                    return awaitable_state<result_type>::ready(results_.build());
                 }
             } else {
-                return pollable_state<result_type>::pending();
+                return awaitable_state<result_type>::pending();
             }
         }
 

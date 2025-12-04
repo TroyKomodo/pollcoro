@@ -4,9 +4,8 @@
 #include <utility>
 #endif
 
-#include "concept.hpp"
+#include "awaitable.hpp"
 #include "export.hpp"
-#include "pollable_state.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -23,8 +22,8 @@ POLLCORO_EXPORT namespace pollcoro {
         map_awaitable(Awaitable awaitable, Func&& func)
             : awaitable(std::move(awaitable)), func(std::forward<Func>(func)) {}
 
-        pollable_state<result_type> on_poll(const waker& w) {
-            return awaitable.on_poll(w).map(func);
+        awaitable_state<result_type> poll(const waker& w) {
+            return awaitable.poll(w).map(func);
         }
     };
 
