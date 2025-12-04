@@ -15,7 +15,7 @@ toc::[]
 
 * *Poll-based design* — explicit control over when and how coroutines make progress
 * *Header-only* — drop into your project with no compilation required
-* *Async generators* — `generator<T>` with `co_yield`, `co_await`, and yield-from support
+* *Async streams* — `stream<T>` with `co_yield`, `co_await`, and yield-from support
 * *C++20 modules* — optional module support for faster builds
 * *PCH support* — precompiled header target for improved compile times
 * *CMake integration* — modern CMake with `find_package` support
@@ -163,19 +163,19 @@ concept awaitable = requires(T t, const waker& w) {
 };
 ----
 
-=== `pollcoro::gen_awaitable` Concept
+=== `pollcoro::stream_awaitable` Concept
 
-Any type satisfying this concept can be used with `co_yield` inside a `generator` (yield-from):
+Any type satisfying this concept can be used with `co_yield` inside a `stream` (yield-from):
 
 [source,cpp]
 ----
 template<typename T>
-concept gen_awaitable = requires(T t, const waker& w) {
-    { t.poll_next(w) } -> /* returns gen_awaitable_state<U> */;
+concept stream_awaitable = requires(T t, const waker& w) {
+    { t.poll_next(w) } -> /* returns stream_awaitable_state<U> */;
 };
 ----
 
-The `generator<T>` type itself satisfies `gen_awaitable`, enabling yield-from composition.
+The `stream<T>` type itself satisfies `stream_awaitable`, enabling yield-from composition.
 
 === Exception Handling
 
@@ -293,17 +293,17 @@ pollcoro::generator<int> combined() {
 }
 ----
 
-=== `pollcoro::gen_next`
+=== `pollcoro::stream_next`
 
-Convert a generator into an awaitable that returns `std::optional<T>`. Returns `std::nullopt` when the generator is exhausted.
+Convert a stream into an awaitable that returns `std::optional<T>`. Returns `std::nullopt` when the stream is exhausted.
 
 [source,cpp]
 ----
-#include <pollcoro/gen_next.hpp>
+#include <pollcoro/stream_next.hpp>
 
-pollcoro::task<> consume_generator() {
-    auto gen = fibonacci();
-    while (auto value = co_await pollcoro::gen_next(gen)) {
+pollcoro::task<> consume_stream() {
+    auto s = fibonacci();
+    while (auto value = co_await pollcoro::stream_next(s)) {
         std::cout << *value << " ";
         if (*value > 100) break;
     }
@@ -332,41 +332,41 @@ An awaitable that is always ready.
 co_await pollcoro::ready(42); // will instantly return 42
 ----
 
-=== `pollcoro::gen`
+=== `pollcoro::stream_from`
 
-Lightweight helpers to create generator-like awaitables from iterators or containers. Useful for yield-from with existing collections.
+Lightweight helpers to create stream-like awaitables from iterators or containers. Useful for yield-from with existing collections.
 
 [source,cpp]
 ----
-#include <pollcoro/gen.hpp>
+#include <pollcoro/stream_from.hpp>
 
 // From iterator pair
 std::vector<int> vec = {1, 2, 3};
-co_yield pollcoro::gen(vec.begin(), vec.end());
+co_yield pollcoro::stream_from(vec.begin(), vec.end());
 
 // From range/container
-co_yield pollcoro::gen(std::array{4, 5, 6});
-co_yield pollcoro::gen(vec);
+co_yield pollcoro::stream_from(std::array{4, 5, 6});
+co_yield pollcoro::stream_from(vec);
 ----
 
-=== `pollcoro::gen_awaitable_state<T>`
+=== `pollcoro::stream_awaitable_state<T>`
 
-The return type of `poll_next()` for generators. Represents ready (with value), pending, or done states.
+The return type of `poll_next()` for streams. Represents ready (with value), pending, or done states.
 
 [source,cpp]
 ----
-#include <pollcoro/gen_awaitable.hpp>
+#include <pollcoro/stream_awaitable.hpp>
 
 // Creating states
-auto ready = pollcoro::gen_awaitable_state<int>::ready(42);
-auto pending = pollcoro::gen_awaitable_state<int>::pending();
-auto done = pollcoro::gen_awaitable_state<int>::done();
+auto ready = pollcoro::stream_awaitable_state<int>::ready(42);
+auto pending = pollcoro::stream_awaitable_state<int>::pending();
+auto done = pollcoro::stream_awaitable_state<int>::done();
 
 // Checking state
 if (state.is_ready()) {
     int value = state.take_result();
 } else if (state.is_done()) {
-    // Generator exhausted
+    // Stream exhausted
 }
 
 // Mapping results

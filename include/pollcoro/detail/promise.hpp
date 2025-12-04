@@ -9,7 +9,7 @@
 #endif
 
 #include "../awaitable.hpp"
-#include "../gen_awaitable.hpp"
+#include "../stream_awaitable.hpp"
 #include "../waker.hpp"
 
 namespace pollcoro::detail {
@@ -41,24 +41,24 @@ class task_storage<void> : public promise_base {
 };
 
 template<typename T>
-class generator_storage : public promise_base {
+class stream_storage : public promise_base {
     std::optional<T> result;
 
   public:
     void return_void() {}
 
-    template<POLLCORO_CONCEPT(gen_awaitable) GenAwaitable>
-    auto yield_value(GenAwaitable&& gen_awaitable) {
-        POLLCORO_STATIC_ASSERT_GEN(GenAwaitable);
+    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    auto yield_value(StreamAwaitable&& stream_awaitable) {
+        POLLCORO_STATIC_ASSERT_STREAM(StreamAwaitable);
 
-        using result_type = gen_awaitable_result_t<GenAwaitable>;
+        using result_type = stream_awaitable_result_t<StreamAwaitable>;
 
         struct transformed_promise {
-            generator_storage& promise;
-            std::decay_t<GenAwaitable> gen_awaitable;
+            stream_storage& promise;
+            std::decay_t<StreamAwaitable> stream_awaitable;
 
-            transformed_promise(generator_storage& promise, GenAwaitable&& gen_awaitable)
-                : promise(promise), gen_awaitable(std::forward<GenAwaitable>(gen_awaitable)) {}
+            transformed_promise(stream_storage& promise, StreamAwaitable&& stream_awaitable)
+                : promise(promise), stream_awaitable(std::forward<StreamAwaitable>(stream_awaitable)) {}
 
             constexpr bool await_ready() {
                 return false;
@@ -67,7 +67,7 @@ class generator_storage : public promise_base {
             void await_suspend(std::coroutine_handle<>) {
                 promise.exception = nullptr;
                 promise.current_awaitable_poll = [this](const waker& w) {
-                    auto state = gen_awaitable.poll_next(w);
+                    auto state = stream_awaitable.poll_next(w);
                     if (state.is_done()) {
                         return true;
                     }
@@ -89,7 +89,7 @@ class generator_storage : public promise_base {
             }
         };
 
-        return transformed_promise(*this, std::forward<GenAwaitable>(gen_awaitable));
+        return transformed_promise(*this, std::forward<StreamAwaitable>(stream_awaitable));
     }
 
     std::suspend_always yield_value(T value) {

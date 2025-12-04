@@ -3,32 +3,28 @@
 #ifndef POLLCORO_MODULE_EXPORT
 #include <coroutine>
 #include <exception>
-#include <functional>
-#include <optional>
-#include <utility>
 #endif
 
-#include "awaitable.hpp"
 #include "export.hpp"
-#include "gen_awaitable.hpp"
-#include "task.hpp"
+#include "detail/promise.hpp"
+#include "stream_awaitable.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<typename T>
-    class generator {
+    class stream {
       public:
-        using promise_type = detail::promise_type<generator, T, detail::generator_storage<T>>;
+        using promise_type = detail::promise_type<stream, T, detail::stream_storage<T>>;
 
-        explicit generator(std::coroutine_handle<promise_type> h, bool destroy_on_drop = true)
+        explicit stream(std::coroutine_handle<promise_type> h, bool destroy_on_drop = true)
             : handle_(h), destroy_on_drop_(destroy_on_drop) {}
 
-        generator(generator&& other) noexcept
+        stream(stream&& other) noexcept
             : handle_(other.handle_), destroy_on_drop_(other.destroy_on_drop_) {
             other.handle_ = nullptr;
         }
 
-        generator& operator=(generator&& other) noexcept {
+        stream& operator=(stream&& other) noexcept {
             if (this != &other) {
                 if (handle_ && destroy_on_drop_) {
                     handle_.destroy();
@@ -40,16 +36,16 @@ POLLCORO_EXPORT namespace pollcoro {
             return *this;
         }
 
-        generator(const generator&) = delete;
-        generator& operator=(const generator&) = delete;
+        stream(const stream&) = delete;
+        stream& operator=(const stream&) = delete;
 
-        ~generator() {
+        ~stream() {
             if (handle_ && destroy_on_drop_) {
                 handle_.destroy();
             }
         }
 
-        gen_awaitable_state<T> poll_next(const waker& w) {
+        stream_awaitable_state<T> poll_next(const waker& w) {
             auto& promise = handle_.promise();
             bool resumed = false;
             if (!is_ready()) {
@@ -65,18 +61,18 @@ POLLCORO_EXPORT namespace pollcoro {
             }
 
             if (promise.has_value()) {
-                return gen_awaitable_state<T>::ready(promise.take_result());
+                return stream_awaitable_state<T>::ready(promise.take_result());
             }
 
             if (is_ready()) {
-                return gen_awaitable_state<T>::done();
+                return stream_awaitable_state<T>::done();
             }
 
             if (resumed) {
                 w.wake();
             }
 
-            return gen_awaitable_state<T>::pending();
+            return stream_awaitable_state<T>::pending();
         }
 
       private:
