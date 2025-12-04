@@ -2,8 +2,6 @@
 
 #include "export.hpp"
 
-#include <cassert>
-
 POLLCORO_EXPORT namespace pollcoro {
     class waker;  // Forward declaration
 
