@@ -310,6 +310,28 @@ pollcoro::task<> consume_generator() {
 }
 ----
 
+=== `pollcoro::pending`
+
+An awaitable that is always pending.
+
+[source,cpp]
+----
+#include <pollcoro/pending.hpp>
+
+co_await pollcoro::pending(); // will never be ready
+----
+
+=== `pollcoro::ready`
+
+An awaitable that is always ready.
+
+[source,cpp]
+----
+#include <pollcoro/ready.hpp>
+
+co_await pollcoro::ready(42); // will instantly return 42
+----
+
 === `pollcoro::gen`
 
 Lightweight helpers to create generator-like awaitables from iterators or containers. Useful for yield-from with existing collections.
