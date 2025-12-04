@@ -15,7 +15,7 @@ POLLCORO_EXPORT namespace pollcoro {
       public:
         ref_awaitable(Awaitable& awaitable) : awaitable(awaitable) {}
 
-        pollable_state<awaitable_result_t<Awaitable>> on_poll(waker& w) {
+        pollable_state<awaitable_result_t<Awaitable>> on_poll(const waker& w) {
             return awaitable.on_poll(w);
         }
     };

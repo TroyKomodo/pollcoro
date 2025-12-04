@@ -189,6 +189,36 @@ Synchronously runs an awaitable to completion, blocking the current thread.
 int result = pollcoro::block_on(my_async_task());
 ----
 
+=== `pollcoro::sleep_for`
+
+Sleep for a specified duration.
+
+[source,cpp]
+----
+#include <pollcoro/sleep.hpp>
+
+template<typename Clock = std::chrono::steady_clock>
+struct my_timer {
+    using duration = typename Clock::duration;
+    using time_point = typename Clock::time_point;
+
+    time_point now() const {
+        return Clock::now();
+    }
+
+    void register_callback(time_point deadline, std::function<void()> callback) {
+        // Maybe use a thread pool, or some other efficent way to schedule the callback
+        std::thread([deadline, callback] {
+            std::this_thread::sleep_until(deadline);
+            callback();
+        }).detach();
+    }
+}
+
+co_await pollcoro::sleep_for<my_timer<>>(std::chrono::seconds(1));
+co_await pollcoro::sleep_until<my_timer<>>(std::chrono::steady_clock::now() + std::chrono::seconds(5));
+----
+
 === `pollcoro::wait_all`
 
 Wait for multiple awaitables to complete. Returns a tuple of results (void results are filtered out).
@@ -326,44 +356,48 @@ class my_awaitable {
     pollcoro::waker stored_waker_;
     
 public:
-    pollcoro::pollable_state<void> on_poll(pollcoro::waker& w) {
+    pollcoro::pollable_state<void> on_poll(const pollcoro::waker& w) {
         if (is_ready()) {
             return pollcoro::pollable_state<void>::ready();
         }
-        stored_waker_ = w.clone();
+        stored_waker_ = w;
         return pollcoro::pollable_state<void>::pending();
     }
     
     void signal_ready() {
-        stored_waker_();  // wake up whoever is polling us
+        stored_waker_.wake();
     }
 };
 ----
 
-You can create your own waker types by implementing the `wake` and `clone` methods.
+You can create your own waker types by implementing the `wake` method.
 
 [source,cpp]
 ----
 class my_waker_t {
+    // Wake the waker with ownership transfer
     void wake() {
         // implementation
-    }
-
-    // Optional method to clone the waker
-    // If not provided the waker is assumed to be trivially copyable
-    waker clone() {
-        return /* implementation */;
     }
 }
 
 auto my_waker = my_waker_t();
-auto waker = pollcoro::waker(my_waker);
 auto some_task = /* ... */;
 
-auto result = some_task.on_poll(waker);
+auto result = some_task.on_poll(pollcoro::waker(my_waker));
 // do something with the result
 
 ----
+
+==== Note about lifetimes and ownership
+
+The `waker` class does not have a destructor or any clone methods. This is because wakers need to be valid as long as the `awaitable` is valid. When the `awaitable` is destroyed the waker can be destroyed as well.
+
+The single_event task is a good example of this, there is a shared_ptr between the awaitable and the setter. 
+
+If the awaitable (receiver) is destroyed, the waker inside the `setter` will be unset so that if another thread calls `setter.set()`, the waker is not called.
+
+Its up to the awaitable to ensure that the waker is not called after it has been destroyed.
 
 == Build Options
 
@@ -412,20 +446,61 @@ Any type can be awaited if it implements `on_poll`:
 ----
 class timer_awaitable {
     std::chrono::steady_clock::time_point deadline_;
-    pollcoro::waker waker_;
+    struct shared {
+        std::mutex mutex;
+        pollcoro::waker waker;
+    };
+    std::shared_ptr<shared> shared_;
+    bool started_ = false;
+
+    void reset() {
+        if (shared_ && started_) {
+            std::lock_guard lock(shared_->mutex);
+            shared_->waker = pollcoro::waker();
+        }
+        shared_ = nullptr;
+        started_ = false;
+    }
     
 public:
     explicit timer_awaitable(std::chrono::milliseconds duration)
-        : deadline_(std::chrono::steady_clock::now() + duration) {}
+        : deadline_(std::chrono::steady_clock::now() + duration),
+         shared_(std::make_shared<shared>()) {}
+
+    ~timer_awaitable() {
+        reset();
+    }
+
+    timer_awaitable(const timer_awaitable& other) = delete;
+    timer_awaitable& operator=(const timer_awaitable& other) = delete;
+    timer_awaitable(timer_awaitable&& other) noexcept {
+        shared_ = std::move(other.shared_);
+        started_ = other.started_;
+        other.shared_ = nullptr;
+        other.started_ = false;
+    };
+    timer_awaitable& operator=(timer_awaitable&& other) noexcept {
+        reset();
+        shared_ = std::move(other.shared_);
+        started_ = other.started_;
+        other.shared_ = nullptr;
+        other.started_ = false;
+        return *this;
+    };
     
     pollcoro::pollable_state<void> on_poll(pollcoro::waker& w) {
         if (std::chrono::steady_clock::now() >= deadline_) {
             return pollcoro::pollable_state<void>::ready();
         }
         
-        waker_ = w;
-        // In a real implementation, register with a timer system
-        // that calls waker_() when the deadline passes
+        waker_->store(w, std::memory_order_release);
+        if (!started_) {
+            started_ = true;
+            some_cool_timer_api.register_callback([shared = shared_]() {
+                std::lock_guard lock(shared->mutex);
+                shared->waker.wake();
+            });
+        }
         
         return pollcoro::pollable_state<void>::pending();
     }
@@ -435,6 +510,8 @@ auto sleep_for(std::chrono::milliseconds ms) {
     return timer_awaitable(ms);
 }
 ----
+
+Pay attention to how the waker is stored and accessed, when the `timer_awaitable` is destroyed it unsets the waker so that when the timer fires, the waker is not called. In this example I also use a mutex since awaitables need to be thread-safe. I don't know how the timer api is implemented, however if it is not on the same thread as the awaitable, you need to use a mutex to ensure thread-safety.
 
 == Requirements
 

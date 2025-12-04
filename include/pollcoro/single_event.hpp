@@ -47,12 +47,15 @@ POLLCORO_EXPORT namespace pollcoro {
             waker waker_;
 
           public:
-            void set_waker(waker& new_waker) {
+            void set_waker(const waker& new_waker) {
                 std::unique_lock lock(mutex_);
                 if (!waker_.will_wake(new_waker)) {
-                    waker_ = new_waker.clone();
-                    lock.unlock();
-                    new_waker.wake();
+                    if (ready_) {
+                        lock.unlock();
+                        new_waker.wake();
+                    } else {
+                        waker_ = new_waker;
+                    }
                 }
             }
 
@@ -61,8 +64,9 @@ POLLCORO_EXPORT namespace pollcoro {
                 auto old_ready = std::exchange(ready_, true);
                 if (!old_ready) {
                     this->set_result(std::move(new_result));
-                    waker_.wake();
+                    auto waker = std::move(waker_);
                     lock.unlock();
+                    waker.wake();
                 }
             }
 
@@ -132,7 +136,7 @@ POLLCORO_EXPORT namespace pollcoro {
             return std::make_tuple(std::move(awaitable), setter(state));
         }
 
-        pollable_state<T> on_poll(waker& w) {
+        pollable_state<T> on_poll(const waker& w) {
             state_->set_waker(w);
             return state_->poll_result();
         }

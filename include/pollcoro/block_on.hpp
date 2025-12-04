@@ -28,16 +28,18 @@ POLLCORO_EXPORT namespace pollcoro {
             }
         };
 
-        waker_data_t wd{};
+        waker_data_t wd;
         while (true) {
+            std::unique_lock lock(wd.mutex);
             wd.notified = false;
-            auto w = waker(wd);
-            auto result = awaitable.on_poll(w);
+            lock.unlock();
+
+            auto result = awaitable.on_poll(waker(wd));
             if (result.is_ready()) {
                 return result.take_result();
             }
 
-            std::unique_lock lock(wd.mutex);
+            lock.lock();
             wd.cv.wait(lock, [&] {
                 return wd.notified;
             });

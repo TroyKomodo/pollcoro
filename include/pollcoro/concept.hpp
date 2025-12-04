@@ -4,6 +4,16 @@
 #include "pollable_state.hpp"
 #include "waker.hpp"
 
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L && \
+    (!defined(POLLCORO_USE_CONCEPTS) || POLLCORO_USE_CONCEPTS)
+#define POLLCORO_CONCEPT(name) name
+#define POLLCORO_USE_CONCEPTS 1
+#include <concepts>
+#else
+#define POLLCORO_CONCEPT(name) typename
+#define POLLCORO_USE_CONCEPTS 0
+#endif
+
 POLLCORO_EXPORT namespace pollcoro {
     namespace detail {
     template<typename T>
@@ -26,24 +36,17 @@ POLLCORO_EXPORT namespace pollcoro {
     template<typename T>
     struct awaitable_traits<
         T,
-        std::void_t<decltype(std::declval<T>().on_poll(std::declval<waker&>()))>>
-        : std::bool_constant<
-              is_pollable_state_v<decltype(std::declval<T>().on_poll(std::declval<waker&>()))>> {};
+        std::void_t<decltype(std::declval<T>().on_poll(std::declval<const waker&>()))>>
+        : std::bool_constant<is_pollable_state_v<
+              decltype(std::declval<T>().on_poll(std::declval<const waker&>()))>> {};
 
     template<typename... Ts>
     constexpr bool awaitable_v = (awaitable_traits<Ts>::value && ...);
     }  // namespace detail
 
-#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
-
-#define POLLCORO_CONCEPT(name) name
-
+#if POLLCORO_USE_CONCEPTS
     template<typename T>
-    concept awaitable = requires(T t, waker& w) { t.on_poll(w); } && detail::awaitable_v<T>;
-#else
-
-#define POLLCORO_CONCEPT(name) typename
-
+    concept awaitable = requires(T t, const waker& w) { t.on_poll(w); } && detail::awaitable_v<T>;
 #endif
 
 #define POLLCORO_STATIC_ASSERT(awaitable)                           \

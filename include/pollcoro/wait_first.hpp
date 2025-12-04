@@ -31,20 +31,20 @@ POLLCORO_EXPORT namespace pollcoro {
         explicit wait_first_awaitable(Awaitables... awaitables)
             : awaitables_(std::move(awaitables)...) {}
 
-        pollable_state<result_type> on_poll(waker& w) {
+        pollable_state<result_type> on_poll(const waker& w) {
             return get_first_ready_result(std::index_sequence_for<Awaitables...>{}, w);
         }
 
       private:
         template<size_t I>
-        auto try_get_result(waker& w) {
+        auto try_get_result(const waker& w) {
             return std::get<I>(awaitables_).on_poll(w).map([](auto result) {
                 return std::make_tuple(std::move(result), I);
             });
         }
 
         template<size_t... Is>
-        auto get_first_ready_result(std::index_sequence<Is...>, waker& w) {
+        auto get_first_ready_result(std::index_sequence<Is...>, const waker& w) {
             pollable_state<result_type> result = pollable_state<result_type>::pending();
             ((result = try_get_result<Is>(w), result.is_ready()) || ...);
             return std::move(result);
@@ -67,7 +67,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         explicit wait_first_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
-        pollable_state<result_type> on_poll(waker& w) {
+        pollable_state<result_type> on_poll(const waker& w) {
             size_t i = 0;
             for (auto& awaitable : awaitables_) {
                 auto state = awaitable.on_poll(w);

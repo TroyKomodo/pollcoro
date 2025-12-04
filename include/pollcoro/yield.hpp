@@ -17,7 +17,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         explicit yield_awaitable(uint64_t ready) : ready_(ready) {}
 
-        pollable_state<> on_poll(waker& w) {
+        pollable_state<> on_poll(const waker& w) {
             if (ready_ > 0) {
                 ready_--;
             }

@@ -108,7 +108,7 @@ POLLCORO_EXPORT namespace pollcoro {
         explicit wait_all_awaitable(Awaitables... awaitables)
             : awaitables_(std::move(awaitables)...) {}
 
-        pollable_state<result_type> on_poll(waker& w) {
+        pollable_state<result_type> on_poll(const waker& w) {
             bool all_ready = poll_all(w, std::index_sequence_for<Awaitables...>{});
 
             if (all_ready) {
@@ -132,7 +132,7 @@ POLLCORO_EXPORT namespace pollcoro {
         std::tuple<stored_result_t<Awaitables>...> results_{};
 
         template<size_t I>
-        bool poll_one(waker& w) {
+        bool poll_one(const waker& w) {
             auto& awaitable = std::get<I>(awaitables_);
             auto& stored = std::get<I>(results_);
 
@@ -162,7 +162,7 @@ POLLCORO_EXPORT namespace pollcoro {
         }
 
         template<size_t... Is>
-        bool poll_all(waker& w, std::index_sequence<Is...>) {
+        bool poll_all(const waker& w, std::index_sequence<Is...>) {
             // Poll all and check if all are ready
             // Note: we poll ALL of them every time to register wakers
             bool results[] = {poll_one<Is>(w)...};
@@ -206,7 +206,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         explicit wait_all_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
-        pollable_state<result_type> on_poll(waker& w) {
+        pollable_state<result_type> on_poll(const waker& w) {
             size_t i = 0;
             for (auto& awaitable : awaitables_) {
                 if (results_.has_result(i)) {

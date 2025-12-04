@@ -52,9 +52,9 @@ POLLCORO_EXPORT namespace pollcoro {
             return false;
         }
 
-        bool await_suspend(std::coroutine_handle<>) {
+        void await_suspend(std::coroutine_handle<>) {
             // Set up readiness check and waker propagation
-            promise.current_awaitable_on_poll_ready = [this](waker& w) {
+            promise.current_awaitable_on_poll_ready = [this](const waker& w) {
                 auto result = awaitable.on_poll(w);
                 if (result.is_ready()) {
                     if constexpr (std::is_void_v<awaitable_result_t<Awaitable>>) {
@@ -68,18 +68,6 @@ POLLCORO_EXPORT namespace pollcoro {
                     return false;
                 }
             };
-
-            auto result = awaitable.on_poll(promise.waker_);
-            if (result.is_ready()) {
-                if constexpr (std::is_void_v<awaitable_result_t<Awaitable>>) {
-                    result.take_result();
-                    this->return_void();
-                } else {
-                    this->return_value(result.take_result());
-                }
-                return false;
-            }
-            return true;
         }
 
         awaitable_result_t<Awaitable> await_resume() {
@@ -100,11 +88,10 @@ POLLCORO_EXPORT namespace pollcoro {
       public:
         struct promise_type : public detail::pollable_task_promise_mixin<T> {
             std::exception_ptr exception;
-            waker waker_;
 
-            std::function<bool(waker&)> current_awaitable_on_poll_ready;
+            std::function<bool(const waker&)> current_awaitable_on_poll_ready;
 
-            bool poll_ready(waker& w) {
+            bool poll_ready(const waker& w) {
                 if (current_awaitable_on_poll_ready) {
                     return current_awaitable_on_poll_ready(w);
                 }
@@ -119,21 +106,8 @@ POLLCORO_EXPORT namespace pollcoro {
                 return {};
             }
 
-            auto final_suspend() noexcept {
-                struct final_awaiter {
-                    bool await_ready() noexcept {
-                        return false;
-                    }
-
-                    void await_suspend(std::coroutine_handle<promise_type> h) noexcept {
-                        auto& promise = h.promise();
-                        promise.waker_.wake();
-                    }
-
-                    void await_resume() noexcept {}
-                };
-
-                return final_awaiter{};
+            std::suspend_always final_suspend() noexcept {
+                return {};
             }
 
             void unhandled_exception() {
@@ -179,11 +153,12 @@ POLLCORO_EXPORT namespace pollcoro {
             }
         }
 
-        pollable_state<T> on_poll(waker& w) {
+        pollable_state<T> on_poll(const waker& w) {
             auto& promise = handle_.promise();
-            promise.waker_ = w.clone();
+            bool resumed = false;
             if (!is_ready()) {
                 if (promise.poll_ready(w)) {
+                    resumed = true;
                     handle_.resume();
                 }
             }
@@ -195,6 +170,8 @@ POLLCORO_EXPORT namespace pollcoro {
                 } else {
                     return pollable_state<T>::ready(take_result());
                 }
+            } else if (resumed) {
+                w.wake();
             }
 
             return pollable_state<T>::pending();

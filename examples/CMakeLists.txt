@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
+include(../cmake/CPM.cmake)
+
 project(pollcoro_examples)
 
 add_executable(fib fib.cc)
@@ -34,3 +36,15 @@ set_target_properties(c_interop_impl PROPERTIES CXX_STANDARD 20)
 add_executable(c_interop c_interop.c)
 target_link_libraries(c_interop PRIVATE c_interop_impl)
 set_target_properties(c_interop PROPERTIES C_STANDARD 11 LANGUAGE C)
+
+CPMAddPackage("gh:andreasbuhr/cppcoro#f05170fbc71aaae06dc31e32812f1caba9525377")
+
+target_compile_options(cppcoro PRIVATE -Wno-unused-result)
+
+add_executable(cxx_cppcoro_interop cxx_cppcoro_interop.cc)
+target_link_libraries(cxx_cppcoro_interop PRIVATE c_interop_impl cppcoro)
+set_target_properties(cxx_cppcoro_interop PROPERTIES CXX_STANDARD 20)
+
+add_executable(timer_sleep timer_sleep.cc)
+target_link_libraries(timer_sleep PRIVATE pollcoro::pollcoro)
+set_target_properties(timer_sleep PROPERTIES CXX_STANDARD 20)

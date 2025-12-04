@@ -23,7 +23,7 @@ POLLCORO_EXPORT namespace pollcoro {
         map_awaitable(Awaitable awaitable, Func&& func)
             : awaitable(std::move(awaitable)), func(std::forward<Func>(func)) {}
 
-        pollable_state<result_type> on_poll(waker& w) {
+        pollable_state<result_type> on_poll(const waker& w) {
             return awaitable.on_poll(w).map(func);
         }
     };
