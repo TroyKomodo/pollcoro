@@ -34,7 +34,8 @@ export module pollcoro;
 #include <pollcoro/wait_all.hpp>
 #include <pollcoro/map.hpp>
 #include <pollcoro/stream.hpp>
-#include <pollcoro/stream_from.hpp>
-#include <pollcoro/stream_next.hpp>
+#include <pollcoro/iter.hpp>
+#include <pollcoro/next.hpp>
+#include <pollcoro/take.hpp>
 #include <pollcoro/stream_awaitable.hpp>
 #include <pollcoro/sleep.hpp>

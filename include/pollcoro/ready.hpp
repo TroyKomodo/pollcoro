@@ -2,11 +2,12 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<typename T>
-    class ready_awaitable {
+    class ready_awaitable : public awaitable_never_blocks {
         T value_;
 
       public:
@@ -18,7 +19,7 @@ POLLCORO_EXPORT namespace pollcoro {
     };
 
     template<>
-    class ready_awaitable<void> {
+    class ready_awaitable<void> : public awaitable_never_blocks {
       public:
         awaitable_state<> poll(const waker& w) {
             return awaitable_state<>::ready();

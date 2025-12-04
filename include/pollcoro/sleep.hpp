@@ -2,6 +2,7 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 #ifndef POLLCORO_MODULE_EXPORT
@@ -30,7 +31,7 @@ POLLCORO_EXPORT namespace pollcoro {
 #endif
 
     template<POLLCORO_CONCEPT(timer) Timer>
-    class sleep_awaitable {
+    class sleep_awaitable : public awaitable_always_blocks {
         struct shared {
             std::mutex mutex;
             pollcoro::waker waker;

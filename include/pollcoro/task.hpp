@@ -11,13 +11,14 @@
 #include "awaitable.hpp"
 #include "detail/promise.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     namespace detail {}  // namespace detail
 
     template<typename T = void>
-    class task {
+    class task : public awaitable_always_blocks {
       public:
         using promise_type = detail::promise_type<task, T, detail::task_storage<T>>;
 

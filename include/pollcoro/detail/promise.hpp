@@ -58,7 +58,8 @@ class stream_storage : public promise_base {
             std::decay_t<StreamAwaitable> stream_awaitable;
 
             transformed_promise(stream_storage& promise, StreamAwaitable&& stream_awaitable)
-                : promise(promise), stream_awaitable(std::forward<StreamAwaitable>(stream_awaitable)) {}
+                : promise(promise),
+                  stream_awaitable(std::forward<StreamAwaitable>(stream_awaitable)) {}
 
             constexpr bool await_ready() {
                 return false;

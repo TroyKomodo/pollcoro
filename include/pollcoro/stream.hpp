@@ -5,14 +5,15 @@
 #include <exception>
 #endif
 
-#include "export.hpp"
 #include "detail/promise.hpp"
+#include "export.hpp"
+#include "is_blocking.hpp"
 #include "stream_awaitable.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<typename T>
-    class stream {
+    class stream : public awaitable_always_blocks {
       public:
         using promise_type = detail::promise_type<stream, T, detail::stream_storage<T>>;
 

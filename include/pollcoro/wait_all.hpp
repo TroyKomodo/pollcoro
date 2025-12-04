@@ -14,6 +14,7 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -98,7 +99,7 @@ POLLCORO_EXPORT namespace pollcoro {
     }  // namespace detail
 
     template<POLLCORO_CONCEPT(awaitable)... Awaitables>
-    class wait_all_awaitable {
+    class wait_all_awaitable : public awaitable_maybe_blocks<Awaitables...> {
         POLLCORO_STATIC_ASSERT(Awaitables...);
 
       public:
@@ -197,7 +198,7 @@ POLLCORO_EXPORT namespace pollcoro {
     template<
         typename VecType,
         POLLCORO_CONCEPT(awaitable) Awaitable = decltype(*std::begin(std::declval<VecType&>()))>
-    class wait_all_iter_awaitable {
+    class wait_all_iter_awaitable : public awaitable_maybe_blocks<Awaitable> {
         using result_storage_t = detail::wait_all_iter_result<awaitable_result_t<Awaitable>>;
 
       public:

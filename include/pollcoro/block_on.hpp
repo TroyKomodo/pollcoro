@@ -7,12 +7,22 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<POLLCORO_CONCEPT(awaitable) Awaitable>
     auto block_on(Awaitable && awaitable) -> awaitable_result_t<Awaitable> {
         POLLCORO_STATIC_ASSERT(Awaitable);
+
+        if constexpr (!is_blocking_v<Awaitable>) {
+            while (true) {
+                auto result = awaitable.poll(waker());
+                if (result.is_ready()) {
+                    return result.take_result();
+                }
+            }
+        }
 
         struct waker_data_t {
             std::mutex mutex;

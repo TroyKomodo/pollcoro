@@ -11,11 +11,12 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
     template<POLLCORO_CONCEPT(awaitable)... Awaitables>
-    class wait_first_awaitable {
+    class wait_first_awaitable : public awaitable_maybe_blocks<Awaitables...> {
         POLLCORO_STATIC_ASSERT(Awaitables...);
 
         static_assert(sizeof...(Awaitables) > 0, "wait_first requires at least one awaitable");
@@ -56,7 +57,7 @@ POLLCORO_EXPORT namespace pollcoro {
     template<
         typename VecType,
         POLLCORO_CONCEPT(awaitable) Awaitable = decltype(*std::begin(std::declval<VecType&>()))>
-    class wait_first_iter_awaitable {
+    class wait_first_iter_awaitable : public awaitable_maybe_blocks<Awaitable> {
         POLLCORO_STATIC_ASSERT(Awaitable);
 
         using result_t = awaitable_result_t<Awaitable>;

@@ -6,10 +6,11 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
-    class yield_awaitable {
+    class yield_awaitable : public awaitable_always_blocks {
         uint64_t ready_{0};
 
       public:

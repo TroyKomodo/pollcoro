@@ -103,8 +103,8 @@ POLLCORO_EXPORT namespace pollcoro {
 
 }  // namespace pollcoro
 
-#define POLLCORO_STATIC_ASSERT_STREAM(stream_awaitable)                             \
-    static_assert(                                                                  \
-        pollcoro::detail::stream_awaitable_v<stream_awaitable>,                     \
-        "The stream_awaitable type does not satisfy the stream_awaitable concept"   \
+#define POLLCORO_STATIC_ASSERT_STREAM(stream_awaitable)                           \
+    static_assert(                                                                \
+        pollcoro::detail::stream_awaitable_v<stream_awaitable>,                   \
+        "The stream_awaitable type does not satisfy the stream_awaitable concept" \
     )

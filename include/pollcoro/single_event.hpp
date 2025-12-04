@@ -11,6 +11,7 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
+#include "is_blocking.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -38,7 +39,7 @@ POLLCORO_EXPORT namespace pollcoro {
     }  // namespace detail
 
     template<typename T>
-    class single_event_awaitable {
+    class single_event_awaitable : public awaitable_always_blocks {
         class state : detail::single_event_result<T> {
             using result_type = detail::single_event_result<T>::type;
 

@@ -2,19 +2,20 @@
 
 #include "awaitable.hpp"
 #include "export.hpp"
-#include "stream.hpp"
+#include "is_blocking.hpp"
+#include "stream_awaitable.hpp"
 #include "waker.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
-    template<typename T>
-    class stream_next_awaitable {
-        stream<T>& stream_;
+    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    class stream_next_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
+        StreamAwaitable& stream_;
 
-        using result_type = std::optional<T>;
+        using result_type = std::optional<stream_awaitable_result_t<StreamAwaitable>>;
         using state_type = awaitable_state<result_type>;
 
       public:
-        stream_next_awaitable(stream<T>& stream) : stream_(stream) {}
+        stream_next_awaitable(StreamAwaitable& stream) : stream_(stream) {}
 
         state_type poll(const waker& w) {
             auto state = stream_.poll_next(w);
@@ -28,9 +29,9 @@ POLLCORO_EXPORT namespace pollcoro {
         }
     };
 
-    template<typename T>
-    constexpr auto stream_next(stream<T> & s) {
-        return stream_next_awaitable<T>(s);
+    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    constexpr auto next(StreamAwaitable & stream) {
+        return stream_next_awaitable<StreamAwaitable>(stream);
     }
 
 }  // namespace pollcoro
