@@ -17,7 +17,7 @@ POLLCORO_EXPORT namespace pollcoro {
     }  // namespace detail
 
     class waker {
-        void (*wake_function_)(void*);
+        void (*wake_function_)(void*) = nullptr;
         void* data_ = nullptr;
 
       public:
