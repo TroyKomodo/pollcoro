@@ -14,6 +14,7 @@ toc::[]
 == Features
 
 * *Poll-based design* — explicit control over when and how coroutines make progress
+* *Zero-cost abstractions* — non-blocking stream pipelines can be fully optimized away by the compiler, resulting in code as efficient as hand-written loops
 * *Header-only* — drop into your project with no compilation required
 * *Async streams* — `stream<T>` with `co_yield`, `co_await`, and yield-from support
 * *C++20 modules* — optional module support for faster builds
@@ -84,11 +85,81 @@ The polling model trades some efficiency (extra poll calls) for predictability a
 
 == Installation
 
-=== CPM.cmake
+=== CPM.cmake (Recommended)
+
+https://github.com/cpm-cmake/CPM.cmake[CPM.cmake] is a lightweight dependency manager for CMake. It downloads and caches dependencies automatically, making it easy to add libraries to your project without submodules or system-wide installation.
 
 [source,cmake]
 ----
+include(cmake/CPM.cmake)  # or wherever you put CPM.cmake
+
 CPMAddPackage("gh:troykomodo/pollcoro#main")
+
+target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
+----
+
+=== FetchContent
+
+If you prefer CMake's built-in FetchContent:
+
+[source,cmake]
+----
+include(FetchContent)
+
+FetchContent_Declare(
+    pollcoro
+    GIT_REPOSITORY https://github.com/troykomodo/pollcoro.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(pollcoro)
+
+target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
+----
+
+=== Git Submodule
+
+[source,bash]
+----
+git submodule add https://github.com/troykomodo/pollcoro.git external/pollcoro
+----
+
+[source,cmake]
+----
+add_subdirectory(external/pollcoro)
+target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
+----
+
+=== CMake Targets
+
+pollcoro provides three CMake targets:
+
+[cols="1,3"]
+|===
+| Target | Description
+
+| `pollcoro::pollcoro`
+| The main header-only library. Link against this for basic usage.
+
+| `pollcoro::pch`
+| Precompiled headers target. Links against `pollcoro::pollcoro` and adds PCH for common standard library headers (`<coroutine>`, `<optional>`, `<tuple>`, `<vector>`, etc.). Use this for faster compilation in larger projects.
+
+| `pollcoro::module`
+| C++20 modules target. Use `import pollcoro;` instead of includes. Requires CMake 3.28+ and a supporting compiler.
+|===
+
+Example usage:
+
+[source,cmake]
+----
+# Basic usage (header-only)
+target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
+
+# With precompiled headers (faster rebuilds)
+target_link_libraries(your_target PRIVATE pollcoro::pch)
+
+# With C++20 modules
+target_link_libraries(your_target PRIVATE pollcoro::module)
+set_target_properties(your_target PROPERTIES CXX_SCAN_FOR_MODULES ON)
 ----
 
 == Quick Start
@@ -120,7 +191,11 @@ int main() {
 The `examples/` directory contains several demonstrations:
 
 * link:examples/fib.cc[fib.cc] — Concurrent Fibonacci using `wait_all` to compute both branches in parallel
-* link:examples/generator.cc[generator.cc] — Async generators with `co_yield`, `co_await`, and yield-from
+* link:examples/stream.cc[stream.cc] — Stream combinators: `take`, `skip`, `map`, `flatten`, `zip`, `fold`, `window`, and more
+* link:examples/pipelines.cc[pipelines.cc] — Complex stream pipelines, zero-cost optimization, type transformations
+* link:examples/custom_awaitable.cc[custom_awaitable.cc] — Creating custom awaitables without coroutines for better performance
+* link:examples/generic.cc[generic.cc] — Type-erased awaitables and streams with `generic_awaitable` and `generic_stream_awaitable`
+* link:examples/wait_combinators.cc[wait_combinators.cc] — Concurrent operations with `wait_all` and `wait_first`
 * link:examples/cc17.cc[cc17.cc] — Basic coroutine usage in C++17
 * link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
 * link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
@@ -252,16 +327,16 @@ auto handle = std::move(task).release();  // task is now empty
 handle.destroy();  // You're responsible for cleanup
 ----
 
-=== `pollcoro::generator<T>`
+=== `pollcoro::stream<T>`
 
-An async generator that produces a sequence of values. Supports `co_yield` for values, `co_await` for async operations, and yield-from for delegating to other generators.
+An async stream that produces a sequence of values. Supports `co_yield` for values, `co_await` for async operations, and yield-from for delegating to other streams.
 
 [source,cpp]
 ----
-#include <pollcoro/generator.hpp>
+#include <pollcoro/stream.hpp>
 
-// Simple generator
-pollcoro::generator<int> fibonacci() {
+// Simple stream
+pollcoro::stream<int> fibonacci() {
     int a = 0, b = 1;
     while (true) {
         co_yield b;
@@ -271,39 +346,59 @@ pollcoro::generator<int> fibonacci() {
     }
 }
 
-// Generator with async operations
-pollcoro::generator<int> async_counter(int count) {
+// Stream with async operations
+pollcoro::stream<int> async_counter(int count) {
     for (int i = 0; i < count; ++i) {
         co_await pollcoro::yield();  // Async work
         co_yield i;
     }
 }
 
-// Yield-from: delegate to another generator
-pollcoro::generator<int> range(int start, int end) {
+// Yield-from: delegate to another stream
+pollcoro::stream<int> make_range(int start, int end) {
     for (int i = start; i < end; ++i) {
         co_yield i;
     }
 }
 
-pollcoro::generator<int> combined() {
-    co_yield 100;              // Single value
-    co_yield range(0, 3);      // Yield from generator: 0, 1, 2
+pollcoro::stream<int> combined() {
+    co_yield 100;                  // Single value
+    co_yield make_range(0, 3);     // Yield from stream: 0, 1, 2
     co_yield 200;
 }
 ----
 
-=== `pollcoro::stream_next`
+==== Yield-from with `pollcoro::iter`
+
+Inside a stream, you can yield from existing collections using `pollcoro::iter`:
+
+[source,cpp]
+----
+#include <pollcoro/iter.hpp>
+
+pollcoro::stream<int> example() {
+    std::vector<int> vec = {1, 2, 3};
+    
+    // Yield from iterator pair
+    co_yield pollcoro::iter(vec.begin(), vec.end());
+    
+    // Yield from container directly
+    co_yield pollcoro::iter(std::array{4, 5, 6});
+    co_yield pollcoro::iter(vec);
+}
+----
+
+=== `pollcoro::next`
 
 Convert a stream into an awaitable that returns `std::optional<T>`. Returns `std::nullopt` when the stream is exhausted.
 
 [source,cpp]
 ----
-#include <pollcoro/stream_next.hpp>
+#include <pollcoro/next.hpp>
 
 pollcoro::task<> consume_stream() {
     auto s = fibonacci();
-    while (auto value = co_await pollcoro::stream_next(s)) {
+    while (auto value = co_await pollcoro::next(s)) {
         std::cout << *value << " ";
         if (*value > 100) break;
     }
@@ -312,13 +407,18 @@ pollcoro::task<> consume_stream() {
 
 === `pollcoro::pending`
 
-An awaitable that is always pending.
+An awaitable that is always pending. Also available as a stream variant.
 
 [source,cpp]
 ----
 #include <pollcoro/pending.hpp>
 
-co_await pollcoro::pending(); // will never be ready
+// Awaitable that never completes
+co_await pollcoro::pending<int>();
+co_await pollcoro::pending<void>();
+
+// Stream that never yields
+auto s = pollcoro::pending_stream<int>();
 ----
 
 === `pollcoro::ready`
@@ -329,24 +429,8 @@ An awaitable that is always ready.
 ----
 #include <pollcoro/ready.hpp>
 
-co_await pollcoro::ready(42); // will instantly return 42
-----
-
-=== `pollcoro::stream_from`
-
-Lightweight helpers to create stream-like awaitables from iterators or containers. Useful for yield-from with existing collections.
-
-[source,cpp]
-----
-#include <pollcoro/stream_from.hpp>
-
-// From iterator pair
-std::vector<int> vec = {1, 2, 3};
-co_yield pollcoro::stream_from(vec.begin(), vec.end());
-
-// From range/container
-co_yield pollcoro::stream_from(std::array{4, 5, 6});
-co_yield pollcoro::stream_from(vec);
+co_await pollcoro::ready(42);  // instantly returns 42
+co_await pollcoro::ready();    // instantly returns void
 ----
 
 === `pollcoro::stream_awaitable_state<T>`
@@ -505,11 +589,13 @@ setter.set();  // no argument needed
 
 === `pollcoro::map`
 
-Transform the result of an awaitable.
+Transform the result of an awaitable or each element of a stream.
 
 [source,cpp]
 ----
 #include <pollcoro/map.hpp>
+
+// === For awaitables (task<T>) ===
 
 // Function form
 auto doubled = co_await pollcoro::map(get_number(), [](auto n) { return n * 2; });
@@ -521,27 +607,66 @@ auto doubled = co_await (
             return n * 2;
         })
 );
+
+// === For streams ===
+
+// Transform each element as it flows through
+auto doubled_stream = my_stream | pollcoro::map([](auto n) { return n * 2; });
+
+// Chain with other combinators
+auto processed = fibonacci()
+    | pollcoro::take(10)
+    | pollcoro::map([](auto n) { return n * n; })  // Square each
+    | pollcoro::skip(2);
+
+// Map to a different type
+auto strings = int_stream | pollcoro::map([](int n) { 
+    return std::to_string(n); 
+});
 ----
 
 === `pollcoro::ref`
 
-Create a reference wrapper around an awaitable (useful when you can't move).
+Create a reference wrapper around an awaitable or stream (useful when you can't move).
 
 [source,cpp]
 ----
 #include <pollcoro/ref.hpp>
 
+// For awaitables
 pollcoro::task<int> my_task = /* ... */;
 co_await pollcoro::ref(my_task);  // polls my_task without moving it
+
+// For streams
+pollcoro::stream<int> my_stream = /* ... */;
+auto ref_stream = pollcoro::ref(my_stream);  // reference to stream
+----
+
+WARNING: The `ref` wrapper holds a raw reference to the original awaitable. The original awaitable **must outlive** the ref wrapper — using a ref after the original is destroyed is undefined behavior. Additionally, when polling through a ref, the waker passed to `poll()` must remain valid for as long as the referenced awaitable might call it.
+
+[source,cpp]
+----
+// DANGEROUS: original destroyed before ref
+auto make_ref() {
+    pollcoro::task<int> task = some_task();
+    return pollcoro::ref(task);  // task destroyed at end of scope!
+}
+
+// SAFE: original outlives ref
+pollcoro::task<int> task = some_task();
+auto ref = pollcoro::ref(task);
+co_await ref;  // task still alive
 ----
 
 === `pollcoro::generic`
 
-Type-erased awaitable wrapper. Useful when you need to store awaitables of different types in a container or return different awaitable types from a function.
+Type-erased wrapper for awaitables and streams. Useful when you need to store different types in a container or return different types from a function.
 
 [source,cpp]
 ----
 #include <pollcoro/generic.hpp>
+
+// === For awaitables (generic_awaitable<T>) ===
 
 // Wrap any awaitable into a type-erased container
 pollcoro::generic_awaitable<int> wrapped = pollcoro::generic(some_task());
@@ -553,6 +678,21 @@ tasks.push_back(pollcoro::generic(task_b()));
 
 // Can be awaited like any other awaitable
 int result = co_await wrapped;
+
+// === For streams (generic_stream_awaitable<T>) ===
+
+// Wrap any stream into a type-erased container
+pollcoro::generic_stream_awaitable<int> wrapped_stream = pollcoro::generic(my_stream);
+
+// Store different stream types uniformly
+std::vector<pollcoro::generic_stream_awaitable<int>> streams;
+streams.push_back(pollcoro::generic(fibonacci() | pollcoro::take(10)));
+streams.push_back(pollcoro::generic(pollcoro::range(100)));
+
+// Iterate like any other stream
+while (auto value = co_await pollcoro::next(wrapped_stream)) {
+    std::cout << *value << " ";
+}
 ----
 
 === `pollcoro::yield`
@@ -567,17 +707,317 @@ co_await pollcoro::yield();     // yield once
 co_await pollcoro::yield(3);    // yield 3 times
 ----
 
+== Stream Combinators
+
+pollcoro provides a rich set of stream combinators for transforming and composing async streams. Most combinators support both function-style and pipe-style (`|`) syntax.
+
+=== `pollcoro::take`
+
+Take the first N elements from a stream.
+
+[source,cpp]
+----
+#include <pollcoro/take.hpp>
+
+// Function style
+auto first_five = pollcoro::take(my_stream, 5);
+
+// Pipe style
+auto first_five = my_stream | pollcoro::take(5);
+
+// Usage
+while (auto value = co_await pollcoro::next(first_five)) {
+    std::cout << *value << " ";
+}
+----
+
+=== `pollcoro::skip`
+
+Skip the first N elements from a stream.
+
+[source,cpp]
+----
+#include <pollcoro/skip.hpp>
+
+// Function style
+auto after_five = pollcoro::skip(my_stream, 5);
+
+// Pipe style
+auto after_five = my_stream | pollcoro::skip(5);
+----
+
+=== `pollcoro::take_while`
+
+Take elements while a predicate returns true, then stop.
+
+[source,cpp]
+----
+#include <pollcoro/take_while.hpp>
+
+// Take numbers less than 100
+auto s = my_stream | pollcoro::take_while([](auto n) { return n < 100; });
+----
+
+=== `pollcoro::skip_while`
+
+Skip elements while a predicate returns true, then emit all remaining elements.
+
+[source,cpp]
+----
+#include <pollcoro/skip_while.hpp>
+
+// Skip until we find a number >= 100
+auto s = my_stream | pollcoro::skip_while([](auto n) { return n < 100; });
+----
+
+=== `pollcoro::chain`
+
+Chain multiple streams together sequentially. When the first stream ends, continues with the second, and so on.
+
+[source,cpp]
+----
+#include <pollcoro/chain.hpp>
+
+// Function style
+auto combined = pollcoro::chain(stream_a, stream_b, stream_c);
+
+// Pipe style
+auto combined = stream_a | pollcoro::chain(stream_b) | pollcoro::chain(stream_c);
+
+// Example: chain fibonacci with a counter
+auto s = fibonacci() | pollcoro::take(3) | pollcoro::chain(async_counter(5));
+// Yields: 1 1 2 0 1 2 3 4
+----
+
+=== `pollcoro::zip`
+
+Combine multiple streams element-wise into tuples. Ends when any stream ends.
+
+[source,cpp]
+----
+#include <pollcoro/zip.hpp>
+
+// Zip two streams together
+auto zipped = pollcoro::zip(stream_a, stream_b);
+
+while (auto value = co_await pollcoro::next(zipped)) {
+    auto [a, b] = *value;
+    std::cout << "(" << a << ", " << b << ") ";
+}
+
+// Zip with enumerate for indexed iteration
+auto indexed = pollcoro::zip(my_stream, pollcoro::enumerate());
+while (auto value = co_await pollcoro::next(indexed)) {
+    auto [item, index] = *value;
+    std::cout << index << ": " << item << std::endl;
+}
+----
+
+=== `pollcoro::enumerate`
+
+Create an infinite stream of sequential indices (0, 1, 2, ...). Useful with `zip` for indexed iteration.
+
+[source,cpp]
+----
+#include <pollcoro/enumerate.hpp>
+
+// Standalone infinite index stream
+auto indices = pollcoro::enumerate();
+
+// Common pattern: zip with enumerate for indexed iteration
+auto indexed = pollcoro::zip(my_stream, pollcoro::enumerate());
+while (auto value = co_await pollcoro::next(indexed)) {
+    auto [item, index] = *value;
+    std::cout << index << ": " << item << std::endl;
+}
+
+// Can also wrap a stream directly (returns pair<index, value>)
+auto enumerated = pollcoro::enumerate(my_stream);
+----
+
+=== `pollcoro::flatten`
+
+Flatten a stream of streams into a single stream.
+
+[source,cpp]
+----
+#include <pollcoro/flatten.hpp>
+
+// Given a stream that yields streams...
+pollcoro::stream<pollcoro::stream<int>> nested = /* ... */;
+
+// Flatten into a single stream of ints
+auto flat = nested | pollcoro::flatten();
+
+// Common pattern: map to streams, then flatten
+auto s = my_stream 
+    | pollcoro::map([](auto n) { return pollcoro::repeat(n) | pollcoro::take(n); })
+    | pollcoro::flatten();
+// If my_stream yields 1, 2, 3: outputs 1, 2, 2, 3, 3, 3
+----
+
+=== `pollcoro::window`
+
+Group elements into fixed-size windows (batches). Returns `std::array<T, N>`.
+
+[source,cpp]
+----
+#include <pollcoro/window.hpp>
+
+// Group into windows of 3
+auto batched = my_stream | pollcoro::window<3>();
+
+while (auto value = co_await pollcoro::next(batched)) {
+    auto [a, b, c] = *value;
+    std::cout << "(" << a << ", " << b << ", " << c << ") ";
+}
+// Stream 0,1,2,3,4,5,6,7,8 yields: (0,1,2) (3,4,5) (6,7,8)
+----
+
+=== `pollcoro::fold`
+
+Reduce a stream to a single value using an accumulator function. Optionally supports early termination.
+
+[source,cpp]
+----
+#include <pollcoro/fold.hpp>
+
+// Sum all elements (void return = no early exit)
+auto sum = co_await pollcoro::fold(my_stream, 0, [](int& acc, int n) {
+    acc += n;
+});
+
+// Sum with early exit (return false to stop)
+auto partial_sum = co_await pollcoro::fold(my_stream, 0, [](int& acc, int n) {
+    acc += n;
+    return acc < 100;  // Stop when sum reaches 100
+});
+----
+
+=== `pollcoro::last`
+
+Get the last element of a stream. Returns `std::optional<T>` (empty if stream was empty).
+
+[source,cpp]
+----
+#include <pollcoro/last.hpp>
+
+auto last_value = co_await pollcoro::last(my_stream);
+if (last_value) {
+    std::cout << "Last: " << *last_value << std::endl;
+}
+----
+
+=== `pollcoro::nth`
+
+Get the Nth element from a stream (1-indexed). Returns `std::optional<T>`. Takes stream by reference, allowing repeated calls for every Nth element.
+
+[source,cpp]
+----
+#include <pollcoro/nth.hpp>
+
+// Get the 3rd element
+auto s = my_stream;
+auto third = co_await pollcoro::nth(s, 3);
+
+// Get every 2nd element
+auto s = my_stream;
+while (auto value = co_await pollcoro::nth(s, 2)) {
+    std::cout << *value << " ";  // 1st, 3rd, 5th, ...
+}
+----
+
+=== `pollcoro::iter` / `pollcoro::iter_move`
+
+Create a stream from iterators or containers.
+
+[source,cpp]
+----
+#include <pollcoro/iter.hpp>
+
+// From iterator pair (copies values)
+std::vector<int> vec = {1, 2, 3};
+auto s = pollcoro::iter(vec.begin(), vec.end());
+
+// From range/container (copies values)
+auto s = pollcoro::iter(vec);
+auto s = pollcoro::iter(std::array{1, 2, 3});
+
+// Move values instead of copying
+auto s = pollcoro::iter_move(vec.begin(), vec.end());
+auto s = pollcoro::iter_move(vec);
+----
+
+=== `pollcoro::range`
+
+Create a stream that emits integers in a range.
+
+[source,cpp]
+----
+#include <pollcoro/range.hpp>
+
+// Range from 0 to 9
+auto s = pollcoro::range(10);
+
+// Range from 5 to 9
+auto s = pollcoro::range(5, 10);
+----
+
+=== `pollcoro::repeat`
+
+Create an infinite stream that repeats a value.
+
+[source,cpp]
+----
+#include <pollcoro/repeat.hpp>
+
+// Infinite stream of 42s
+auto s = pollcoro::repeat(42);
+
+// Useful with take
+auto five_zeros = pollcoro::repeat(0) | pollcoro::take(5);
+----
+
+=== `pollcoro::empty`
+
+Create an empty stream that immediately completes.
+
+[source,cpp]
+----
+#include <pollcoro/empty.hpp>
+
+auto s = pollcoro::empty<int>();  // Immediately done
+----
+
+=== `pollcoro::sync_iter`
+
+Synchronously iterate over a stream using range-based for loops. Only works with non-blocking streams.
+
+[source,cpp]
+----
+#include <pollcoro/sync_iter.hpp>
+
+// Use range-based for loop
+auto s = pollcoro::range(10);
+for (auto value : pollcoro::sync_iter(std::move(s))) {
+    std::cout << value << " ";
+}
+----
+
 === `pollcoro::awaitable_state<T>`
 
 The return type of `poll()`. Represents either a ready result or pending state.
 
 [source,cpp]
 ----
-#include <pollcoro/awaitable_state.hpp>
+#include <pollcoro/awaitable.hpp>
 
 // Creating states
 auto ready = pollcoro::awaitable_state<int>::ready(42);
 auto pending = pollcoro::awaitable_state<int>::pending();
+
+// For void
+auto void_ready = pollcoro::awaitable_state<void>::ready();
 
 // Checking state
 if (state.is_ready()) {
@@ -701,11 +1141,63 @@ Requires CMake 3.28+ and a supporting compiler (GCC 14+, Clang 16+, MSVC 19.34+)
 
 == Writing Custom Awaitables
 
-Any type can be awaited if it implements `on_poll`:
+Any type can be awaited if it implements `poll()`.
+
+=== Blocking Traits
+
+When composing awaitables, pollcoro tracks whether they might block (wait for external events) or are guaranteed to complete synchronously. This enables:
+
+* *`sync_iter`* — synchronous iteration only works with non-blocking streams
+* *Zero-cost optimization* — when an entire stream pipeline is non-blocking, the compiler can optimize away the coroutine machinery entirely. No heap allocations, no coroutine frames — just straight-line code as efficient as hand-written loops.
+
+For example, `pollcoro::range(100) | pollcoro::take(10) | pollcoro::map(square)` compiles down to a simple loop since `range`, `take`, and `map` are all non-blocking.
+
+Inherit from one of these base classes to declare your awaitable's blocking behavior:
 
 [source,cpp]
 ----
-class timer_awaitable {
+#include <pollcoro/is_blocking.hpp>
+
+// Always blocks - waits for external events (timers, I/O, etc.)
+class my_timer : public pollcoro::awaitable_always_blocks {
+    // ...
+};
+
+// Never blocks - always completes synchronously
+class my_ready : public pollcoro::awaitable_never_blocks {
+    // ...
+};
+
+// Blocking depends on wrapped awaitables
+template<typename Inner>
+class my_wrapper : public pollcoro::awaitable_maybe_blocks<Inner> {
+    // is_blocking_v will be true if Inner::is_blocking_v is true
+};
+
+// Multiple dependencies
+template<typename A, typename B>
+class my_combinator : public pollcoro::awaitable_maybe_blocks<A, B> {
+    // is_blocking_v will be true if either A or B might block
+};
+----
+
+If you don't inherit from any of these, your awaitable is assumed to be blocking by default.
+
+You can check blocking status at compile time:
+
+[source,cpp]
+----
+static_assert(pollcoro::is_blocking_v<my_timer>);        // true
+static_assert(!pollcoro::is_blocking_v<my_ready>);       // false
+----
+
+=== Example: Timer Awaitable
+
+Here's a complete example of a custom awaitable that waits for a timer:
+
+[source,cpp]
+----
+class timer_awaitable : public pollcoro::awaitable_always_blocks {
     std::chrono::steady_clock::time_point deadline_;
     struct shared {
         std::mutex mutex;
@@ -774,6 +1266,75 @@ auto sleep_for(std::chrono::milliseconds ms) {
 ----
 
 Pay attention to how the waker is stored and accessed, when the `timer_awaitable` is destroyed it unsets the waker so that when the timer fires, the waker is not called. In this example I also use a mutex since awaitables need to be thread-safe. I don't know how the timer api is implemented, however if it is not on the same thread as the awaitable, you need to use a mutex to ensure thread-safety.
+
+== Performance Tips
+
+=== Coroutines vs Custom Awaitables
+
+Every `pollcoro::task<T>` or `pollcoro::stream<T>` allocates a coroutine frame on the heap. Custom awaitables that implement `poll()` directly are just regular objects with no heap allocation.
+
+**Suboptimal** — coroutine allocates heap memory:
+
+[source,cpp]
+----
+pollcoro::task<int> add_one(int x) {
+    co_return x + 1;
+}
+----
+
+**Better** — no allocation:
+
+[source,cpp]
+----
+auto add_one(int x) {
+    return pollcoro::ready(x + 1);
+}
+----
+
+However, coroutines have a significant advantage: **automatic lifetime management**. Local variables in a coroutine are stored in the coroutine frame and stay alive across suspension points. With custom awaitables, you must manually manage state and be careful about captures:
+
+[source,cpp]
+----
+// DANGEROUS: captures reference to local variable
+auto bad_awaitable(std::vector<int> data) {
+    return pollcoro::iter(data);  // data may be destroyed!
+}
+
+// SAFE: coroutine keeps locals alive
+pollcoro::stream<int> safe_stream(std::vector<int> data) {
+    for (auto& item : data) {  // data lives in coroutine frame
+        co_yield item;
+    }
+}
+----
+
+**When to use coroutines** (`task<T>`, `stream<T>`):
+
+* Complex control flow with multiple suspension points
+* When local variables need to persist across `co_await`
+* Yielding sequences with `co_yield`
+* Prototyping — easier to write correctly
+
+**When to use custom awaitables**:
+
+* Simple transformations (use `pollcoro::ready`, `pollcoro::map`)
+* Wrapping external async APIs
+* Hot paths where allocation matters
+* Building reusable combinators
+
+=== Non-Blocking Pipelines
+
+Fully non-blocking pipelines can be optimized away entirely:
+
+[source,cpp]
+----
+// This compiles to a simple loop — no coroutine overhead
+auto sum = co_await pollcoro::fold(
+    pollcoro::range(1000) | pollcoro::map(square) | pollcoro::take(10),
+    0,
+    [](int& acc, int n) { acc += n; }
+);
+----
 
 == Requirements
 

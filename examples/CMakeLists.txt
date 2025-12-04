@@ -56,3 +56,19 @@ set_target_properties(exceptions PROPERTIES CXX_STANDARD 20)
 add_executable(stream stream.cc)
 target_link_libraries(stream PRIVATE pollcoro::pollcoro)
 set_target_properties(stream PROPERTIES CXX_STANDARD 20)
+
+add_executable(custom_awaitable custom_awaitable.cc)
+target_link_libraries(custom_awaitable PRIVATE pollcoro::pollcoro)
+set_target_properties(custom_awaitable PROPERTIES CXX_STANDARD 20)
+
+add_executable(generic generic.cc)
+target_link_libraries(generic PRIVATE pollcoro::pollcoro)
+set_target_properties(generic PROPERTIES CXX_STANDARD 20)
+
+add_executable(pipelines pipelines.cc)
+target_link_libraries(pipelines PRIVATE pollcoro::pollcoro)
+set_target_properties(pipelines PROPERTIES CXX_STANDARD 20)
+
+add_executable(wait_combinators wait_combinators.cc)
+target_link_libraries(wait_combinators PRIVATE pollcoro::pollcoro)
+set_target_properties(wait_combinators PROPERTIES CXX_STANDARD 20)

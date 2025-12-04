@@ -21,7 +21,7 @@ POLLCORO_EXPORT namespace pollcoro {
 #endif
 
     template<typename Predicate, typename T>
-    constexpr static bool is_take_while_predicate_v = std::is_invocable_v<Predicate, const T&>;
+    inline constexpr bool is_take_while_predicate_v = std::is_invocable_v<Predicate, const T&>;
     }  // namespace detail
 
     template<
