@@ -2,14 +2,14 @@
 
 #ifndef POLLCORO_MODULE_EXPORT
 #include <cstddef>
+#include <functional>
 #include <new>
 #include <type_traits>
-#include <functional>
 #endif
 
+#include "awaitable.hpp"
 #include "concepts.hpp"
 #include "export.hpp"
-#include "awaitable.hpp"
 #include "stream_awaitable.hpp"
 
 POLLCORO_EXPORT namespace pollcoro {
@@ -91,7 +91,7 @@ POLLCORO_EXPORT namespace pollcoro {
         const allocator* previous_allocator_;
         inline static thread_local const allocator* current_allocator_ = &default_allocator;
 
-    public:
+      public:
         allocator_guard(const allocator& allocator) : previous_allocator_(current_allocator_) {
             current_allocator_ = &allocator;
         }
@@ -99,6 +99,7 @@ POLLCORO_EXPORT namespace pollcoro {
         ~allocator_guard() {
             current_allocator_ = previous_allocator_;
         }
+
         static const allocator* current_allocator() {
             return current_allocator_;
         }
@@ -109,48 +110,53 @@ POLLCORO_EXPORT namespace pollcoro {
     }
 
     namespace detail {
-        template<POLLCORO_CONCEPT(awaitable) Awaitable>
-        class allocator_aware_awaitable {
-            const allocator& allocator_;
-            Awaitable awaitable_;
+    template<POLLCORO_CONCEPT(awaitable) Awaitable>
+    class allocator_aware_awaitable {
+        const allocator& allocator_;
+        Awaitable awaitable_;
 
-        public:
-            allocator_aware_awaitable(Awaitable awaitable)
-                : allocator_(current_allocator()), awaitable_(std::move(awaitable)) {}
+      public:
+        allocator_aware_awaitable(Awaitable awaitable)
+            : allocator_(current_allocator()), awaitable_(std::move(awaitable)) {}
 
-            auto poll(const waker& w) {
-                auto guard = allocator_guard(allocator_);
-                return awaitable_.poll(w);
-            }
-        };
+        auto poll(const waker& w) {
+            auto guard = allocator_guard(allocator_);
+            return awaitable_.poll(w);
+        }
+    };
 
-        template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
-        class allocator_aware_stream_awaitable {
-            const allocator& allocator_;
-            StreamAwaitable stream_awaitable_;
+    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    class allocator_aware_stream_awaitable {
+        const allocator& allocator_;
+        StreamAwaitable stream_awaitable_;
 
-        public:
-            allocator_aware_stream_awaitable(StreamAwaitable stream_awaitable)
-                : allocator_(current_allocator()), stream_awaitable_(std::move(stream_awaitable)) {}
+      public:
+        allocator_aware_stream_awaitable(StreamAwaitable stream_awaitable)
+            : allocator_(current_allocator()), stream_awaitable_(std::move(stream_awaitable)) {}
 
-            auto poll_next(const waker& w) {
-                auto guard = allocator_guard(allocator_);
-                return stream_awaitable_.poll_next(w);
-            }
-        };
-    }
+        auto poll_next(const waker& w) {
+            auto guard = allocator_guard(allocator_);
+            return stream_awaitable_.poll_next(w);
+        }
+    };
+    }  // namespace detail
 
     template<typename Func, typename... Args>
-    auto allocator::in_scope(Func&& func, Args&&... args) const {
+    auto allocator::in_scope(Func && func, Args && ... args) const {
         auto guard = allocator_guard(*this);
-        using result_type = decltype(std::invoke(std::forward<Func>(func), std::forward<Args>(args)...));
+        using result_type =
+            decltype(std::invoke(std::forward<Func>(func), std::forward<Args>(args)...));
 
         if constexpr (detail::is_awaitable_v<result_type>) {
-            return detail::allocator_aware_awaitable<result_type>(std::invoke(std::forward<Func>(func), std::forward<Args>(args)...));
+            return detail::allocator_aware_awaitable<result_type>(
+                std::invoke(std::forward<Func>(func), std::forward<Args>(args)...)
+            );
         }
-        
+
         if constexpr (detail::is_stream_awaitable_v<result_type>) {
-            return detail::allocator_aware_stream_awaitable<result_type>(std::invoke(std::forward<Func>(func), std::forward<Args>(args)...));
+            return detail::allocator_aware_stream_awaitable<result_type>(
+                std::invoke(std::forward<Func>(func), std::forward<Args>(args)...)
+            );
         }
     }
 

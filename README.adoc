@@ -203,7 +203,8 @@ The `examples/` directory contains several demonstrations:
 * link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
 * link:examples/exceptions.cc[exceptions.cc] — Exception handling and propagation in coroutines
 * link:examples/timer_sleep.cc[timer_sleep.cc] — Using `sleep_until` with a custom timer implementation
-* link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Interoperability with cppcoro (resume-based library)
+* link:examples/interop_resumable.cc[interop_resumable.cc] — Bidirectional interop with cppcoro using `make_pollable` and `make_resumable`
+* link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Low-level manual interop with cppcoro via C API
 * link:examples/allocator.cc[allocator.cc] — Custom allocators for coroutine frame allocation
 
 == Core Concepts
@@ -588,6 +589,73 @@ pollcoro::task<int> wait_for_callback() {
 auto [awaitable, setter] = pollcoro::single_event<void>();
 setter.set();  // no argument needed
 ----
+
+=== `pollcoro::make_pollable`
+
+Convert a resume-based awaitable (like `cppcoro::task<T>`) into a poll-based pollcoro awaitable. This allows you to use awaitables from libraries like cppcoro inside pollcoro coroutines.
+
+[source,cpp]
+----
+#include <pollcoro/make_pollable.hpp>
+
+// Use a cppcoro awaitable inside pollcoro
+pollcoro::task<int> use_cppcoro_inside_pollcoro() {
+    // async_compute returns cppcoro::task<int>
+    int result = co_await pollcoro::make_pollable(async_compute(21));
+    co_return result;
+}
+
+// Works with any resume-based awaitable
+pollcoro::task<> example() {
+    co_await pollcoro::make_pollable(cppcoro_async_sleep(std::chrono::milliseconds(100)));
+}
+----
+
+The adapter immediately starts the wrapped coroutine and polls the shared state for completion. When the resume-based awaitable completes (or throws), the result is captured and returned on the next poll.
+
+=== `pollcoro::make_resumable`
+
+Convert a poll-based pollcoro awaitable into a resume-based awaitable that can be used with standard C++ coroutine libraries. This allows pollcoro tasks to be awaited inside cppcoro coroutines.
+
+[source,cpp]
+----
+#include <pollcoro/make_resumable.hpp>
+
+// Use a pollcoro task inside cppcoro
+cppcoro::task<int> use_pollcoro_inside_cppcoro(cppcoro::io_service& io_service) {
+    // poll_chain returns pollcoro::task<int>
+    int result = co_await pollcoro::make_resumable(poll_chain(), io_service);
+    co_return result;
+}
+----
+
+The scheduler parameter (e.g., `cppcoro::io_service`) must satisfy the `scheduler` concept — it needs a `schedule()` method that returns an awaitable. The adapter repeatedly polls the pollcoro awaitable, yielding to the scheduler between polls.
+
+==== Bidirectional Interop Example
+
+Combine both adapters for full interoperability between poll-based and resume-based coroutines:
+
+[source,cpp]
+----
+// cppcoro async primitive
+cppcoro::task<> async_sleep(std::chrono::milliseconds duration);
+
+// pollcoro task that uses cppcoro primitives
+pollcoro::task<int> poll_with_cppcoro_sleep(int value) {
+    // Use cppcoro inside pollcoro via make_pollable
+    co_await pollcoro::make_pollable(async_sleep(std::chrono::milliseconds(100)));
+    co_return value;
+}
+
+// cppcoro task that drives pollcoro
+cppcoro::task<int> cppcoro_drives_pollcoro(cppcoro::io_service& io_service) {
+    // Use pollcoro inside cppcoro via make_resumable
+    int result = co_await pollcoro::make_resumable(poll_with_cppcoro_sleep(42), io_service);
+    co_return result;
+}
+----
+
+See link:examples/interop_resumable.cc[interop_resumable.cc] for a complete working example.
 
 === `pollcoro::map`
 
@@ -1460,7 +1528,6 @@ The following features are planned but not yet available:
 * *I/O operations* — file reading/writing, sockets, networking
 * *Multi-threaded executors* — running tasks across multiple threads
 * *Detached tasks* — tasks that get polled to completion without explicitly waiting for them
-* *Resumable coroutine bridge* — interoperability with resume-based C++ coroutine libraries
 * *More bindings examples* — interoperability with Rust, Python, and other languages.
 
 Contributions welcome!

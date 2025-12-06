@@ -5,8 +5,8 @@
 #include <pollcoro/allocator.hpp>
 #include <pollcoro/block_on.hpp>
 #include <pollcoro/task.hpp>
-#include <pollcoro/yield.hpp>
 #include <pollcoro/wait_all.hpp>
+#include <pollcoro/yield.hpp>
 
 template<size_t BlockSize, size_t BlockCount>
 class bitmap_allocator {

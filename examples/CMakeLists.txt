@@ -38,7 +38,6 @@ target_link_libraries(c_interop PRIVATE c_interop_impl)
 set_target_properties(c_interop PROPERTIES C_STANDARD 11 LANGUAGE C)
 
 CPMAddPackage("gh:andreasbuhr/cppcoro#f05170fbc71aaae06dc31e32812f1caba9525377")
-
 target_compile_options(cppcoro PRIVATE -Wno-unused-result)
 
 add_executable(cxx_cppcoro_interop cxx_cppcoro_interop.cc)
@@ -76,3 +75,7 @@ set_target_properties(wait_combinators PROPERTIES CXX_STANDARD 20)
 add_executable(allocator allocator.cc)
 target_link_libraries(allocator PRIVATE pollcoro::pollcoro)
 set_target_properties(allocator PROPERTIES CXX_STANDARD 20)
+
+add_executable(interop_resumable interop_resumable.cc)
+target_link_libraries(interop_resumable PRIVATE pollcoro::pollcoro cppcoro)
+set_target_properties(interop_resumable PROPERTIES CXX_STANDARD 20)
