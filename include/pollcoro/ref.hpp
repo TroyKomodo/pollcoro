@@ -29,15 +29,24 @@ POLLCORO_EXPORT namespace pollcoro {
 
       public:
         ref_stream_awaitable(StreamAwaitable& stream) : stream(stream) {}
+
+        stream_awaitable_state<stream_awaitable_result_t<StreamAwaitable>>
+        poll_next(const waker& w) {
+            return stream.poll_next(w);
+        }
     };
 
-    template<POLLCORO_CONCEPT(awaitable) Awaitable>
+    template<
+        POLLCORO_CONCEPT(awaitable) Awaitable,
+        std::enable_if_t<detail::is_awaitable_v<Awaitable>, int> = 0>
     auto ref(Awaitable & awaitable) {
         POLLCORO_STATIC_ASSERT(Awaitable);
         return ref_awaitable<Awaitable>(awaitable);
     }
 
-    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    template<
+        POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable,
+        std::enable_if_t<detail::is_stream_awaitable_v<StreamAwaitable>, int> = 0>
     auto ref(StreamAwaitable & stream) {
         POLLCORO_STATIC_ASSERT_STREAM(StreamAwaitable);
         return ref_stream_awaitable<StreamAwaitable>(stream);

@@ -72,3 +72,7 @@ set_target_properties(pipelines PROPERTIES CXX_STANDARD 20)
 add_executable(wait_combinators wait_combinators.cc)
 target_link_libraries(wait_combinators PRIVATE pollcoro::pollcoro)
 set_target_properties(wait_combinators PROPERTIES CXX_STANDARD 20)
+
+add_executable(allocator allocator.cc)
+target_link_libraries(allocator PRIVATE pollcoro::pollcoro)
+set_target_properties(allocator PROPERTIES CXX_STANDARD 20)

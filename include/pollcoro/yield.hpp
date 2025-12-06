@@ -11,12 +11,12 @@
 
 POLLCORO_EXPORT namespace pollcoro {
     class yield_awaitable : public awaitable_always_blocks {
-        uint64_t ready_{0};
+        uint32_t ready_{0};
 
       public:
         yield_awaitable() : yield_awaitable(1) {}
 
-        explicit yield_awaitable(uint64_t ready) : ready_(ready) {}
+        explicit yield_awaitable(uint32_t ready) : ready_(ready) {}
 
         awaitable_state<> poll(const waker& w) {
             if (ready_ > 0) {
@@ -27,7 +27,7 @@ POLLCORO_EXPORT namespace pollcoro {
         }
     };
 
-    inline auto yield(uint64_t ready = 1) {
+    inline auto yield(uint32_t ready = 1) {
         return yield_awaitable(ready);
     }
 

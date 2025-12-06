@@ -77,24 +77,24 @@ POLLCORO_EXPORT namespace pollcoro {
     };
 
     template<typename T, typename = void>
-    struct stream_awaitable_traits : std::false_type {};
+    struct is_stream_awaitable : std::false_type {};
 
     template<typename T>
-    struct stream_awaitable_traits<
+    struct is_stream_awaitable<
         T,
         std::void_t<decltype(std::declval<T>().poll_next(std::declval<const waker&>()))>>
         : std::bool_constant<is_stream_awaitable_state_v<
               decltype(std::declval<T>().poll_next(std::declval<const waker&>()))>> {};
 
     template<typename... Ts>
-    constexpr bool stream_awaitable_v = (stream_awaitable_traits<Ts>::value && ...);
+    constexpr bool is_stream_awaitable_v = (is_stream_awaitable<Ts>::value && ...);
 
     }  // namespace detail
 
 #if POLLCORO_USE_CONCEPTS
     template<typename T>
     concept stream_awaitable =
-        requires(T t, const waker& w) { t.poll_next(w); } && detail::stream_awaitable_v<T>;
+        requires(T t, const waker& w) { t.poll_next(w); } && detail::is_stream_awaitable_v<T>;
 #endif
 
     template<POLLCORO_CONCEPT(stream_awaitable) T>
@@ -105,6 +105,6 @@ POLLCORO_EXPORT namespace pollcoro {
 
 #define POLLCORO_STATIC_ASSERT_STREAM(stream_awaitable)                           \
     static_assert(                                                                \
-        pollcoro::detail::stream_awaitable_v<stream_awaitable>,                   \
+        pollcoro::detail::is_stream_awaitable_v<stream_awaitable>,                \
         "The stream_awaitable type does not satisfy the stream_awaitable concept" \
     )

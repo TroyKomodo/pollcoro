@@ -57,7 +57,10 @@ POLLCORO_EXPORT namespace pollcoro {
         map_composable(Func&& func) : func(std::forward<Func>(func)) {}
     };
 
-    template<POLLCORO_CONCEPT(awaitable) Awaitable, typename Func>
+    template<
+        POLLCORO_CONCEPT(awaitable) Awaitable,
+        typename Func,
+        std::enable_if_t<detail::is_awaitable_v<Awaitable>, int> = 0>
     auto map(Awaitable && awaitable, Func && func) {
         POLLCORO_STATIC_ASSERT(Awaitable);
         return map_awaitable<Awaitable, Func>(
@@ -65,7 +68,10 @@ POLLCORO_EXPORT namespace pollcoro {
         );
     }
 
-    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable, typename Func>
+    template<
+        POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable,
+        typename Func,
+        std::enable_if_t<detail::is_stream_awaitable_v<StreamAwaitable>, int> = 0>
     auto map(StreamAwaitable && stream, Func && func) {
         POLLCORO_STATIC_ASSERT_STREAM(StreamAwaitable);
         return map_stream_awaitable<StreamAwaitable, Func>(
@@ -78,7 +84,10 @@ POLLCORO_EXPORT namespace pollcoro {
         return map_composable<Func>(std::forward<Func>(func));
     }
 
-    template<POLLCORO_CONCEPT(awaitable) Awaitable, typename Func>
+    template<
+        POLLCORO_CONCEPT(awaitable) Awaitable,
+        typename Func,
+        std::enable_if_t<detail::is_awaitable_v<Awaitable>, int> = 0>
     auto operator|(Awaitable&& awaitable, map_composable<Func>&& mapper) {
         POLLCORO_STATIC_ASSERT(Awaitable);
         return map_awaitable<Awaitable, Func>(
@@ -86,7 +95,10 @@ POLLCORO_EXPORT namespace pollcoro {
         );
     }
 
-    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable, typename Func>
+    template<
+        POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable,
+        typename Func,
+        std::enable_if_t<detail::is_stream_awaitable_v<StreamAwaitable>, int> = 0>
     auto operator|(StreamAwaitable&& stream, map_composable<Func>&& mapper) {
         POLLCORO_STATIC_ASSERT_STREAM(StreamAwaitable);
         return map_stream_awaitable<StreamAwaitable, Func>(

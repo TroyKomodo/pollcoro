@@ -17,6 +17,7 @@ module;
 #include <utility>
 #include <variant>
 #include <vector>
+#include <iostream>
 
 #define POLLCORO_MODULE_EXPORT
 

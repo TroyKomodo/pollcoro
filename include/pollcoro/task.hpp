@@ -19,6 +19,16 @@ POLLCORO_EXPORT namespace pollcoro {
 
     template<typename T = void>
     class task : public awaitable_always_blocks {
+        void destroy() {
+            if (handle_ && destroy_on_drop_) {
+                auto& allocator = handle_.promise().allocator();
+                auto address = handle_.address();
+                handle_.destroy();
+                allocator.deallocate(address);
+                handle_ = nullptr;
+            }
+        }
+
       public:
         using promise_type = detail::promise_type<task, T, detail::task_storage<T>>;
 
@@ -32,9 +42,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         task& operator=(task&& other) noexcept {
             if (this != &other) {
-                if (handle_ && destroy_on_drop_) {
-                    handle_.destroy();
-                }
+                destroy();
                 handle_ = other.handle_;
                 destroy_on_drop_ = other.destroy_on_drop_;
                 other.handle_ = nullptr;
@@ -46,9 +54,7 @@ POLLCORO_EXPORT namespace pollcoro {
         task& operator=(const task&) = delete;
 
         ~task() {
-            if (handle_ && destroy_on_drop_) {
-                handle_.destroy();
-            }
+            destroy();
         }
 
         awaitable_state<T> poll(const waker& w) {
@@ -67,6 +73,11 @@ POLLCORO_EXPORT namespace pollcoro {
             }
 
             if (is_ready()) {
+                auto exception = promise.exception;
+                promise.exception = nullptr;
+                if (exception) {
+                    std::rethrow_exception(exception);
+                }
                 if constexpr (std::is_void_v<T>) {
                     return awaitable_state<T>::ready();
                 } else {

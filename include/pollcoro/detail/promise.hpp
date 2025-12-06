@@ -4,10 +4,12 @@
 #include <coroutine>
 #include <exception>
 #include <functional>
+#include <iostream>
 #include <optional>
 #include <utility>
 #endif
 
+#include "../allocator.hpp"
 #include "../awaitable.hpp"
 #include "../stream_awaitable.hpp"
 #include "../waker.hpp"
@@ -28,9 +30,7 @@ class task_storage : public promise_base {
     }
 
     T take_result() {
-        auto value = std::move(*result);
-        result = std::nullopt;
-        return value;
+        return std::move(*result);
     }
 };
 
@@ -157,14 +157,54 @@ auto transform_awaitable(promise_type& promise, Awaitable&& awaitable) {
     return transformed_promise(promise, std::forward<Awaitable>(awaitable));
 }
 
+template<typename Allocator, typename = void>
+struct is_allocator {
+    static constexpr bool value = false;
+};
+
+template<typename Allocator>
+struct is_allocator<
+    Allocator,
+    std::void_t<
+        decltype(static_cast<void*>(std::declval<Allocator>().alloc(std::size_t{}))),
+        decltype(static_cast<void>(std::declval<Allocator>().dealloc(std::declval<void*>())))>> {
+    static constexpr bool value = true;
+};
+
+template<typename Allocator>
+inline constexpr bool is_allocator_v = is_allocator<Allocator>::value;
+
 template<typename task, typename result, typename storage>
 struct promise_type : public storage {
+    const pollcoro::allocator& alloc_ = default_allocator;
+
+    promise_type() : alloc_(current_allocator()) {}
+
+    ~promise_type() {
+#ifndef NDEBUG
+        if (this->exception) {
+            std::cerr << "Promise destroyed while exception is present" << std::endl;
+            std::rethrow_exception(this->exception);
+        }
+#endif
+    }
+
     bool poll_ready(const waker& w) {
         if (this->current_awaitable_poll) {
             return this->current_awaitable_poll(w);
         }
         return true;
     }
+
+    const pollcoro::allocator& allocator() const {
+        return alloc_;
+    }
+
+    static void* operator new(size_t size) {
+        return current_allocator().allocate(size);
+    }
+
+    static void operator delete(void* ptr) noexcept {}
 
     task get_return_object() {
         return task(std::coroutine_handle<promise_type>::from_promise(*this));

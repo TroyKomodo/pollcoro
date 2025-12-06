@@ -64,14 +64,18 @@ POLLCORO_EXPORT namespace pollcoro {
         }
     };
 
-    template<POLLCORO_CONCEPT(awaitable) Awaitable>
+    template<
+        POLLCORO_CONCEPT(awaitable) Awaitable,
+        std::enable_if_t<detail::is_awaitable_v<Awaitable>, int> = 0>
     auto generic(Awaitable awaitable) {
         POLLCORO_STATIC_ASSERT(Awaitable);
 
         return generic_awaitable<awaitable_result_t<Awaitable>>(std::move(awaitable));
     }
 
-    template<POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable>
+    template<
+        POLLCORO_CONCEPT(stream_awaitable) StreamAwaitable,
+        std::enable_if_t<detail::is_stream_awaitable_v<StreamAwaitable>, int> = 0>
     auto generic(StreamAwaitable stream) {
         POLLCORO_STATIC_ASSERT_STREAM(StreamAwaitable);
 

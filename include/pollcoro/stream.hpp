@@ -14,6 +14,16 @@
 POLLCORO_EXPORT namespace pollcoro {
     template<typename T>
     class stream : public awaitable_always_blocks {
+        void destroy() {
+            if (handle_ && destroy_on_drop_) {
+                auto& allocator = handle_.promise().allocator();
+                auto address = handle_.address();
+                handle_.destroy();
+                allocator.deallocate(address);
+                handle_ = nullptr;
+            }
+        }
+
       public:
         using promise_type = detail::promise_type<stream, T, detail::stream_storage<T>>;
 
@@ -27,9 +37,7 @@ POLLCORO_EXPORT namespace pollcoro {
 
         stream& operator=(stream&& other) noexcept {
             if (this != &other) {
-                if (handle_ && destroy_on_drop_) {
-                    handle_.destroy();
-                }
+                destroy();
                 handle_ = other.handle_;
                 destroy_on_drop_ = other.destroy_on_drop_;
                 other.handle_ = nullptr;
@@ -41,9 +49,7 @@ POLLCORO_EXPORT namespace pollcoro {
         stream& operator=(const stream&) = delete;
 
         ~stream() {
-            if (handle_ && destroy_on_drop_) {
-                handle_.destroy();
-            }
+            destroy();
         }
 
         stream_awaitable_state<T> poll_next(const waker& w) {

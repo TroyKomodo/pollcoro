@@ -98,23 +98,23 @@ POLLCORO_EXPORT namespace pollcoro {
     };
 
     template<typename T, typename = void>
-    struct awaitable_traits : std::false_type {};
+    struct is_awaitable : std::false_type {};
 
     template<typename T>
-    struct awaitable_traits<
+    struct is_awaitable<
         T,
         std::void_t<decltype(std::declval<T>().poll(std::declval<const waker&>()))>>
         : std::bool_constant<is_awaitable_state_v<
               decltype(std::declval<T>().poll(std::declval<const waker&>()))>> {};
 
     template<typename... Ts>
-    constexpr bool awaitable_v = (awaitable_traits<Ts>::value && ...);
+    constexpr bool is_awaitable_v = (is_awaitable<Ts>::value && ...);
 
     }  // namespace detail
 
 #if POLLCORO_USE_CONCEPTS
     template<typename T>
-    concept awaitable = requires(T t, const waker& w) { t.poll(w); } && detail::awaitable_v<T>;
+    concept awaitable = requires(T t, const waker& w) { t.poll(w); } && detail::is_awaitable_v<T>;
 #endif
 
     template<POLLCORO_CONCEPT(awaitable) T>
@@ -125,6 +125,6 @@ POLLCORO_EXPORT namespace pollcoro {
 
 #define POLLCORO_STATIC_ASSERT(awaitable)                           \
     static_assert(                                                  \
-        pollcoro::detail::awaitable_v<awaitable>,                   \
+        pollcoro::detail::is_awaitable_v<awaitable>,                \
         "The awaitable type does not satisfy the awaitable concept" \
     )
