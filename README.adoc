@@ -17,6 +17,7 @@ toc::[]
 * *Zero-cost abstractions* — non-blocking stream pipelines can be fully optimized away by the compiler, resulting in code as efficient as hand-written loops
 * *Header-only* — drop into your project with no compilation required
 * *Async streams* — `stream<T>` with `co_yield`, `co_await`, and yield-from support
+* *Custom allocators* — pluggable memory allocation for coroutine frames with thread-local scoping
 * *C++20 modules* — optional module support for faster builds
 * *PCH support* — precompiled header target for improved compile times
 * *CMake integration* — modern CMake with `find_package` support
@@ -203,6 +204,7 @@ The `examples/` directory contains several demonstrations:
 * link:examples/exceptions.cc[exceptions.cc] — Exception handling and propagation in coroutines
 * link:examples/timer_sleep.cc[timer_sleep.cc] — Using `sleep_until` with a custom timer implementation
 * link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Interoperability with cppcoro (resume-based library)
+* link:examples/allocator.cc[allocator.cc] — Custom allocators for coroutine frame allocation
 
 == Core Concepts
 
@@ -705,6 +707,121 @@ Yield control back to the executor for a specified number of polls.
 
 co_await pollcoro::yield();     // yield once
 co_await pollcoro::yield(3);    // yield 3 times
+----
+
+=== `pollcoro::allocator`
+
+Custom allocator support for coroutine frame allocation. By default, pollcoro uses `operator new` and `operator delete`, but you can provide custom allocators for fine-grained memory control.
+
+[source,cpp]
+----
+#include <pollcoro/allocator.hpp>
+----
+
+==== The `allocator_impl` Concept
+
+Any type implementing `allocate(size_t)` and `deallocate(void*)` satisfies the allocator concept:
+
+[source,cpp]
+----
+template<typename Impl>
+concept allocator_impl = requires(Impl& impl) {
+    { impl.allocate(std::declval<size_t>()) } -> std::same_as<void*>;
+    { impl.deallocate(std::declval<void*>()) } -> std::same_as<void>;
+};
+----
+
+==== `pollcoro::default_allocator`
+
+The default allocator that uses `operator new` and `operator delete`:
+
+[source,cpp]
+----
+// Explicitly use the default allocator
+co_await pollcoro::allocate_in(pollcoro::default_allocator, some_task);
+----
+
+==== `pollcoro::allocate_in`
+
+Execute a coroutine-returning function with a specific allocator. The allocator is captured at creation time and used for all nested coroutine allocations:
+
+[source,cpp]
+----
+my_allocator_impl alloc;
+
+// Create and run a task with custom allocator
+co_await pollcoro::allocate_in(alloc, []() -> pollcoro::task<int> {
+    co_return 42;
+});
+
+// Works with function pointers and any callable
+pollcoro::task<> my_task() { co_return; }
+co_await pollcoro::allocate_in(alloc, my_task);
+
+// The allocator is preserved across co_await boundaries
+co_await pollcoro::allocate_in(alloc, []() -> pollcoro::task<> {
+    // All nested coroutines also use `alloc`
+    co_await nested_task();
+    co_await another_task();
+});
+----
+
+==== Example: Slab Allocator
+
+Here's a complete example using a custom slab allocator:
+
+[source,cpp]
+----
+template<size_t N>
+class slab_allocator {
+    // ... bitmap-based allocation pools ...
+    
+public:
+    void* allocate(size_t size) {
+        if (size <= 128) return small_pool_.allocate();
+        if (size <= 512) return medium_pool_.allocate();
+        if (size <= 1024) return large_pool_.allocate();
+        throw std::bad_alloc();
+    }
+    
+    void deallocate(void* ptr) noexcept {
+        if (small_pool_.owns(ptr)) return small_pool_.deallocate(ptr);
+        if (medium_pool_.owns(ptr)) return medium_pool_.deallocate(ptr);
+        if (large_pool_.owns(ptr)) return large_pool_.deallocate(ptr);
+    }
+};
+
+pollcoro::task<> example() {
+    auto alloc = slab_allocator<10240>();
+    
+    // This coroutine and all nested ones use the slab allocator
+    co_await pollcoro::allocate_in(alloc, []() -> pollcoro::task<> {
+        co_await pollcoro::yield();
+        co_await nested_operation();
+    });
+    
+    // Back to default allocator
+    co_await some_other_task();
+}
+----
+
+==== Allocator Lifetime
+
+The allocator must outlive all coroutines that use it. The allocator reference is captured when the coroutine is created and used for both allocation and deallocation:
+
+[source,cpp]
+----
+// SAFE: allocator outlives the coroutine
+slab_allocator<10240> alloc;
+auto result = pollcoro::block_on(
+    pollcoro::allocate_in(alloc, my_task)
+);
+
+// DANGEROUS: allocator destroyed before coroutine completes
+auto make_task() {
+    slab_allocator<10240> alloc;  // Destroyed at end of function!
+    return pollcoro::allocate_in(alloc, my_task);  // BAD
+}
 ----
 
 == Stream Combinators
