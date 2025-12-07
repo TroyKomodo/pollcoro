@@ -6,15 +6,10 @@
  */
 
 #include <chrono>
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/awaitable.hpp>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/is_blocking.hpp>
-#include <pollcoro/map.hpp>
-#include <pollcoro/ready.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/waker.hpp>
+
+import pollcoro;
 
 // =============================================================================
 // Example 1: Simple non-blocking awaitable

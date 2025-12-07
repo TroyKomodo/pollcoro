@@ -3,7 +3,7 @@
 :toc-placement!:
 :source-highlighter: highlight.js
 
-A header-only C++17 coroutine-ts library using *polling* instead of the traditional resume-based approach.
+A C++20 modules-based coroutine library using *polling* instead of the traditional resume-based approach.
 
 Unlike most C++ coroutine libraries that rely on continuation-passing and resume callbacks, pollcoro uses an explicit polling model inspired by Rust's `Future` trait. Awaitables expose an `poll()` method that returns either `ready` or `pending`, giving you fine-grained control over execution.
 
@@ -15,11 +15,9 @@ toc::[]
 
 * *Poll-based design* — explicit control over when and how coroutines make progress
 * *Zero-cost abstractions* — non-blocking stream pipelines can be fully optimized away by the compiler, resulting in code as efficient as hand-written loops
-* *Header-only* — drop into your project with no compilation required
+* *C++20 modules* — modern module-based design for faster builds and better encapsulation
 * *Async streams* — `stream<T>` with `co_yield`, `co_await`, and yield-from support
 * *Custom allocators* — pluggable memory allocation for coroutine frames with thread-local scoping
-* *C++20 modules* — optional module support for faster builds
-* *PCH support* — precompiled header target for improved compile times
 * *CMake integration* — modern CMake with `find_package` support
 
 == Polling vs Resume-Based Coroutines
@@ -130,46 +128,24 @@ add_subdirectory(external/pollcoro)
 target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
 ----
 
-=== CMake Targets
+=== CMake Configuration
 
-pollcoro provides three CMake targets:
-
-[cols="1,3"]
-|===
-| Target | Description
-
-| `pollcoro::pollcoro`
-| The main header-only library. Link against this for basic usage.
-
-| `pollcoro::pch`
-| Precompiled headers target. Links against `pollcoro::pollcoro` and adds PCH for common standard library headers (`<coroutine>`, `<optional>`, `<tuple>`, `<vector>`, etc.). Use this for faster compilation in larger projects.
-
-| `pollcoro::module`
-| C++20 modules target. Use `import pollcoro;` instead of includes. Requires CMake 3.28+ and a supporting compiler.
-|===
-
-Example usage:
+Link against `pollcoro::pollcoro` and use `import pollcoro;` in your code:
 
 [source,cmake]
 ----
-# Basic usage (header-only)
 target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
-
-# With precompiled headers (faster rebuilds)
-target_link_libraries(your_target PRIVATE pollcoro::pch)
-
-# With C++20 modules
-target_link_libraries(your_target PRIVATE pollcoro::module)
-set_target_properties(your_target PROPERTIES CXX_SCAN_FOR_MODULES ON)
 ----
+
+NOTE: Requires CMake 3.28+ and a C++20 modules-capable compiler (GCC 14+, Clang 16+, MSVC 19.34+).
 
 == Quick Start
 
 [source,cpp]
 ----
-#include <pollcoro/task.hpp>
-#include <pollcoro/block_on.hpp>
 #include <iostream>
+
+import pollcoro;
 
 pollcoro::task<int> async_add(int a, int b) {
     co_return a + b;
@@ -197,14 +173,13 @@ The `examples/` directory contains several demonstrations:
 * link:examples/custom_awaitable.cc[custom_awaitable.cc] — Creating custom awaitables without coroutines for better performance
 * link:examples/generic.cc[generic.cc] — Type-erased awaitables and streams with `generic_awaitable` and `generic_stream_awaitable`
 * link:examples/wait_combinators.cc[wait_combinators.cc] — Concurrent operations with `wait_all` and `wait_first`
-* link:examples/cc17.cc[cc17.cc] — Basic coroutine usage in C++17
 * link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
 * link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
 * link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
 * link:examples/exceptions.cc[exceptions.cc] — Exception handling and propagation in coroutines
 * link:examples/timer_sleep.cc[timer_sleep.cc] — Using `sleep_until` with a custom timer implementation
 * link:examples/interop_cppcoro.cc[interop_cppcoro.cc] — Bidirectional interop with cppcoro using `to_pollable` and `to_resumable`
-* link:examples/interop_asio.cc[interop_asio.cc] — Bidirectional interop with ASIO using `from_asio` and `to_asio`
+* link:examples/interop_asio.cc[interop_asio.cc] — Bidirectional interop with ASIO (adapters defined in example)
 * link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Low-level manual interop with cppcoro via C API
 * link:examples/allocator.cc[allocator.cc] — Custom allocators for coroutine frame allocation
 
@@ -309,8 +284,6 @@ The primary coroutine type. Lazy — doesn't run until polled.
 
 [source,cpp]
 ----
-#include <pollcoro/task.hpp>
-
 pollcoro::task<int> fetch_value() {
     co_return 42;
 }
@@ -337,8 +310,6 @@ An async stream that produces a sequence of values. Supports `co_yield` for valu
 
 [source,cpp]
 ----
-#include <pollcoro/stream.hpp>
-
 // Simple stream
 pollcoro::stream<int> fibonacci() {
     int a = 0, b = 1;
@@ -378,8 +349,6 @@ Inside a stream, you can yield from existing collections using `pollcoro::iter`:
 
 [source,cpp]
 ----
-#include <pollcoro/iter.hpp>
-
 pollcoro::stream<int> example() {
     std::vector<int> vec = {1, 2, 3};
     
@@ -398,8 +367,6 @@ Convert a stream into an awaitable that returns `std::optional<T>`. Returns `std
 
 [source,cpp]
 ----
-#include <pollcoro/next.hpp>
-
 pollcoro::task<> consume_stream() {
     auto s = fibonacci();
     while (auto value = co_await pollcoro::next(s)) {
@@ -415,8 +382,6 @@ An awaitable that is always pending. Also available as a stream variant.
 
 [source,cpp]
 ----
-#include <pollcoro/pending.hpp>
-
 // Awaitable that never completes
 co_await pollcoro::pending<int>();
 co_await pollcoro::pending<void>();
@@ -431,8 +396,6 @@ An awaitable that is always ready.
 
 [source,cpp]
 ----
-#include <pollcoro/ready.hpp>
-
 co_await pollcoro::ready(42);  // instantly returns 42
 co_await pollcoro::ready();    // instantly returns void
 ----
@@ -443,8 +406,6 @@ The return type of `poll_next()` for streams. Represents ready (with value), pen
 
 [source,cpp]
 ----
-#include <pollcoro/stream_awaitable.hpp>
-
 // Creating states
 auto ready = pollcoro::stream_awaitable_state<int>::ready(42);
 auto pending = pollcoro::stream_awaitable_state<int>::pending();
@@ -467,8 +428,6 @@ Synchronously runs an awaitable to completion, blocking the current thread.
 
 [source,cpp]
 ----
-#include <pollcoro/block_on.hpp>
-
 int result = pollcoro::block_on(my_async_task());
 ----
 
@@ -478,8 +437,6 @@ Sleep for a specified duration or until a deadline. Requires a timer type that s
 
 [source,cpp]
 ----
-#include <pollcoro/sleep.hpp>
-
 // Timer concept requirements:
 template<typename Timer>
 concept timer = requires(Timer timer) {
@@ -537,8 +494,6 @@ Wait for multiple awaitables to complete. Returns a tuple of results (void resul
 
 [source,cpp]
 ----
-#include <pollcoro/wait_all.hpp>
-
 // Variadic form
 auto [a, b, c] = co_await pollcoro::wait_all(
     task_returning_int(),
@@ -557,8 +512,6 @@ Wait for the first awaitable to complete. Returns the result and the index of th
 
 [source,cpp]
 ----
-#include <pollcoro/wait_first.hpp>
-
 // Variadic form
 auto [result, index] = co_await pollcoro::wait_first(task_a(), task_b(), task_c());
 
@@ -573,8 +526,6 @@ A one-shot event for bridging external code (threads, callbacks) into the corout
 
 [source,cpp]
 ----
-#include <pollcoro/single_event.hpp>
-
 pollcoro::task<int> wait_for_callback() {
     auto [awaitable, setter] = pollcoro::single_event<int>();
     
@@ -597,8 +548,6 @@ Convert a resume-based awaitable (like `cppcoro::task<T>`) into a poll-based pol
 
 [source,cpp]
 ----
-#include <pollcoro/resumable.hpp>
-
 // Use a cppcoro awaitable inside pollcoro
 pollcoro::task<int> use_cppcoro_inside_pollcoro() {
     // async_compute returns cppcoro::task<int>
@@ -620,8 +569,6 @@ Convert a poll-based pollcoro awaitable into a resume-based awaitable that can b
 
 [source,cpp]
 ----
-#include <pollcoro/resumable.hpp>
-
 // Use a pollcoro task inside cppcoro
 cppcoro::task<int> use_pollcoro_inside_cppcoro(cppcoro::io_service& io_service) {
     // poll_chain returns pollcoro::task<int>
@@ -660,66 +607,19 @@ See link:examples/interop_cppcoro.cc[interop_cppcoro.cc] for a complete working 
 
 === ASIO Integration
 
-pollcoro provides full bidirectional interoperability with ASIO through `<pollcoro/asio.hpp>`.
+pollcoro can interoperate bidirectionally with ASIO. The link:examples/interop_asio.cc[interop_asio.cc] example demonstrates how to build adapters for:
 
-==== `pollcoro::from_asio` — Use ASIO inside pollcoro
+* `from_asio` — Use ASIO awaitables inside pollcoro
+* `to_asio` — Use pollcoro awaitables inside ASIO coroutines
 
-Convert an ASIO awaitable factory into a pollcoro awaitable:
 
-[source,cpp]
-----
-#include <pollcoro/asio.hpp>
-
-pollcoro::task<int> use_asio_timer(asio::any_io_executor executor) {
-    // Use ASIO timer inside pollcoro
-    co_await pollcoro::from_asio<void>(executor, [&]() -> asio::awaitable<void> {
-        asio::steady_timer timer(co_await asio::this_coro::executor,
-                                 std::chrono::milliseconds(100));
-        co_await timer.async_wait(asio::use_awaitable);
-    });
-    
-    // Get a value from ASIO
-    int result = co_await pollcoro::from_asio<int>(executor, [&]() -> asio::awaitable<int> {
-        co_return 42;
-    });
-    
-    co_return result;
-}
-----
-
-NOTE: You must run `io_context::run()` in a separate thread to drive the ASIO operations while `block_on` drives the pollcoro task.
-
-==== `pollcoro::to_asio` — Use pollcoro inside ASIO
-
-Convert a pollcoro awaitable to an ASIO async operation:
-
-[source,cpp]
-----
-#include <pollcoro/asio.hpp>
-
-asio::awaitable<int> use_pollcoro_task() {
-    auto executor = co_await asio::this_coro::executor;
-    
-    auto pollcoro_task = []() -> pollcoro::task<int> {
-        co_await pollcoro::yield();
-        co_return 42;
-    };
-    
-    int result = co_await pollcoro::to_asio(
-        executor, pollcoro_task(), asio::use_awaitable
-    );
-    
-    co_return result;
-}
-----
-
-==== `pollcoro::asio_scheduler` — Use pollcoro with `to_resumable`
+==== `asio_scheduler` — Use pollcoro with `to_resumable`
 
 A scheduler adapter for using `to_resumable` with ASIO-based event loops:
 
 [source,cpp]
 ----
-pollcoro::asio_scheduler sched{ctx.get_executor()};
+asio_scheduler sched{ctx.get_executor()};
 auto resumable = pollcoro::to_resumable(my_pollcoro_task(), sched);
 ----
 
@@ -731,14 +631,14 @@ See link:examples/interop_asio.cc[interop_asio.cc] for complete ASIO integration
 * Full bidirectional interop (ASIO → pollcoro → ASIO)
 * Concurrent pollcoro tasks in ASIO
 
+NOTE: ASIO adapters are not part of the pollcoro module itself. The `interop_asio.cc` example provides ready-to-use adapter implementations that you can copy into your project.
+
 === `pollcoro::map`
 
 Transform the result of an awaitable or each element of a stream.
 
 [source,cpp]
 ----
-#include <pollcoro/map.hpp>
-
 // === For awaitables (task<T>) ===
 
 // Function form
@@ -775,8 +675,6 @@ Create a reference wrapper around an awaitable or stream (useful when you can't 
 
 [source,cpp]
 ----
-#include <pollcoro/ref.hpp>
-
 // For awaitables
 pollcoro::task<int> my_task = /* ... */;
 co_await pollcoro::ref(my_task);  // polls my_task without moving it
@@ -808,8 +706,6 @@ Type-erased wrapper for awaitables and streams. Useful when you need to store di
 
 [source,cpp]
 ----
-#include <pollcoro/generic.hpp>
-
 // === For awaitables (generic_awaitable<T>) ===
 
 // Wrap any awaitable into a type-erased container
@@ -845,8 +741,6 @@ Yield control back to the executor for a specified number of polls.
 
 [source,cpp]
 ----
-#include <pollcoro/yield.hpp>
-
 co_await pollcoro::yield();     // yield once
 co_await pollcoro::yield(3);    // yield 3 times
 ----
@@ -854,11 +748,6 @@ co_await pollcoro::yield(3);    // yield 3 times
 === `pollcoro::allocator`
 
 Custom allocator support for coroutine frame allocation. By default, pollcoro uses `operator new` and `operator delete`, but you can provide custom allocators for fine-grained memory control.
-
-[source,cpp]
-----
-#include <pollcoro/allocator.hpp>
-----
 
 ==== The `allocator_impl` Concept
 
@@ -976,8 +865,6 @@ Take the first N elements from a stream.
 
 [source,cpp]
 ----
-#include <pollcoro/take.hpp>
-
 // Function style
 auto first_five = pollcoro::take(my_stream, 5);
 
@@ -996,8 +883,6 @@ Skip the first N elements from a stream.
 
 [source,cpp]
 ----
-#include <pollcoro/skip.hpp>
-
 // Function style
 auto after_five = pollcoro::skip(my_stream, 5);
 
@@ -1011,8 +896,6 @@ Take elements while a predicate returns true, then stop.
 
 [source,cpp]
 ----
-#include <pollcoro/take_while.hpp>
-
 // Take numbers less than 100
 auto s = my_stream | pollcoro::take_while([](auto n) { return n < 100; });
 ----
@@ -1023,8 +906,6 @@ Skip elements while a predicate returns true, then emit all remaining elements.
 
 [source,cpp]
 ----
-#include <pollcoro/skip_while.hpp>
-
 // Skip until we find a number >= 100
 auto s = my_stream | pollcoro::skip_while([](auto n) { return n < 100; });
 ----
@@ -1035,8 +916,6 @@ Chain multiple streams together sequentially. When the first stream ends, contin
 
 [source,cpp]
 ----
-#include <pollcoro/chain.hpp>
-
 // Function style
 auto combined = pollcoro::chain(stream_a, stream_b, stream_c);
 
@@ -1054,8 +933,6 @@ Combine multiple streams element-wise into tuples. Ends when any stream ends.
 
 [source,cpp]
 ----
-#include <pollcoro/zip.hpp>
-
 // Zip two streams together
 auto zipped = pollcoro::zip(stream_a, stream_b);
 
@@ -1078,8 +955,6 @@ Create an infinite stream of sequential indices (0, 1, 2, ...). Useful with `zip
 
 [source,cpp]
 ----
-#include <pollcoro/enumerate.hpp>
-
 // Standalone infinite index stream
 auto indices = pollcoro::enumerate();
 
@@ -1100,8 +975,6 @@ Flatten a stream of streams into a single stream.
 
 [source,cpp]
 ----
-#include <pollcoro/flatten.hpp>
-
 // Given a stream that yields streams...
 pollcoro::stream<pollcoro::stream<int>> nested = /* ... */;
 
@@ -1121,8 +994,6 @@ Group elements into fixed-size windows (batches). Returns `std::array<T, N>`.
 
 [source,cpp]
 ----
-#include <pollcoro/window.hpp>
-
 // Group into windows of 3
 auto batched = my_stream | pollcoro::window<3>();
 
@@ -1139,8 +1010,6 @@ Reduce a stream to a single value using an accumulator function. Optionally supp
 
 [source,cpp]
 ----
-#include <pollcoro/fold.hpp>
-
 // Sum all elements (void return = no early exit)
 auto sum = co_await pollcoro::fold(my_stream, 0, [](int& acc, int n) {
     acc += n;
@@ -1159,8 +1028,6 @@ Get the last element of a stream. Returns `std::optional<T>` (empty if stream wa
 
 [source,cpp]
 ----
-#include <pollcoro/last.hpp>
-
 auto last_value = co_await pollcoro::last(my_stream);
 if (last_value) {
     std::cout << "Last: " << *last_value << std::endl;
@@ -1173,8 +1040,6 @@ Get the Nth element from a stream (1-indexed). Returns `std::optional<T>`. Takes
 
 [source,cpp]
 ----
-#include <pollcoro/nth.hpp>
-
 // Get the 3rd element
 auto s = my_stream;
 auto third = co_await pollcoro::nth(s, 3);
@@ -1192,8 +1057,6 @@ Create a stream from iterators or containers.
 
 [source,cpp]
 ----
-#include <pollcoro/iter.hpp>
-
 // From iterator pair (copies values)
 std::vector<int> vec = {1, 2, 3};
 auto s = pollcoro::iter(vec.begin(), vec.end());
@@ -1213,8 +1076,6 @@ Create a stream that emits integers in a range.
 
 [source,cpp]
 ----
-#include <pollcoro/range.hpp>
-
 // Range from 0 to 9
 auto s = pollcoro::range(10);
 
@@ -1228,8 +1089,6 @@ Create an infinite stream that repeats a value.
 
 [source,cpp]
 ----
-#include <pollcoro/repeat.hpp>
-
 // Infinite stream of 42s
 auto s = pollcoro::repeat(42);
 
@@ -1243,8 +1102,6 @@ Create an empty stream that immediately completes.
 
 [source,cpp]
 ----
-#include <pollcoro/empty.hpp>
-
 auto s = pollcoro::empty<int>();  // Immediately done
 ----
 
@@ -1254,8 +1111,6 @@ Synchronously iterate over a stream using range-based for loops. Only works with
 
 [source,cpp]
 ----
-#include <pollcoro/sync_iter.hpp>
-
 // Use range-based for loop
 auto s = pollcoro::range(10);
 for (auto value : pollcoro::sync_iter(std::move(s))) {
@@ -1269,8 +1124,6 @@ The return type of `poll()`. Represents either a ready result or pending state.
 
 [source,cpp]
 ----
-#include <pollcoro/awaitable.hpp>
-
 // Creating states
 auto ready = pollcoro::awaitable_state<int>::ready(42);
 auto pending = pollcoro::awaitable_state<int>::pending();
@@ -1293,8 +1146,6 @@ A callback that signals readiness. Store it and invoke when your awaitable becom
 
 [source,cpp]
 ----
-#include <pollcoro/waker.hpp>
-
 class my_awaitable {
     pollcoro::waker stored_waker_;
     
@@ -1361,14 +1212,6 @@ The `single_event` implementation demonstrates a safe pattern: a `shared_ptr` co
 | `${PROJECT_IS_TOP_LEVEL}`
 | Generate install targets
 
-| `POLLCORO_PCH`
-| `ON`
-| Enable precompiled headers target
-
-| `POLLCORO_MODULES`
-| `ON`
-| Enable C++20 modules support
-
 | `POLLCORO_TESTS`
 | `${PROJECT_IS_TOP_LEVEL}`
 | Build test suite
@@ -1377,26 +1220,6 @@ The `single_event` implementation demonstrates a safe pattern: a `shared_ptr` co
 | `${PROJECT_IS_TOP_LEVEL}`
 | Build example programs
 |===
-
-=== Using PCH
-
-Link against `pollcoro::pch` for faster compilation:
-
-[source,cmake]
-----
-target_link_libraries(your_target PRIVATE pollcoro::pch)
-----
-
-=== Using Modules
-
-Link against `pollcoro::module` and import in your code:
-
-[source,cpp]
-----
-import pollcoro;
-----
-
-Requires CMake 3.28+ and a supporting compiler (GCC 14+, Clang 16+, MSVC 19.34+).
 
 == Writing Custom Awaitables
 
@@ -1415,8 +1238,6 @@ Inherit from one of these base classes to declare your awaitable's blocking beha
 
 [source,cpp]
 ----
-#include <pollcoro/is_blocking.hpp>
-
 // Always blocks - waits for external events (timers, I/O, etc.)
 class my_timer : public pollcoro::awaitable_always_blocks {
     // ...
@@ -1608,8 +1429,8 @@ Contributions welcome!
 
 == Requirements
 
-* C++17 compiler with coroutine-ts support
-* CMake 3.28+ (for modules support)
+* C++20 compiler with modules support (GCC 14+, Clang 16+, MSVC 19.34+)
+* CMake 3.28+
 
 == License
 

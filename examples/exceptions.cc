@@ -1,8 +1,8 @@
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/yield.hpp>
+#include <stdexcept>
+
+import pollcoro;
 
 pollcoro::task<int> async_divide(int a, int b) {
     if (b == 0) {

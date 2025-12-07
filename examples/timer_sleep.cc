@@ -1,7 +1,9 @@
+#include <coroutine>
+#include <functional>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/sleep.hpp>
-#include <pollcoro/task.hpp>
+#include <thread>
+
+import pollcoro;
 
 template<typename Clock = std::chrono::steady_clock>
 struct my_timer {

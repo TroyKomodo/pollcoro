@@ -3,81 +3,78 @@ cmake_minimum_required(VERSION 3.28)
 project(pollcoro
     VERSION 1.0.0
     LANGUAGES CXX
-    DESCRIPTION "A header-only C++17 coroutine-ts library polling library"
+    DESCRIPTION "A C++20 module-based coroutine polling library"
 )
 
 option(POLLCORO_INSTALL "Generate install targets" ${PROJECT_IS_TOP_LEVEL})
-option(POLLCORO_PCH "Enable precompiled headers" ON)
-option(POLLCORO_MODULES "Enable C++20 module support (experimental)" ON)
 option(POLLCORO_TESTS "Enable tests" ${PROJECT_IS_TOP_LEVEL})
 option(POLLCORO_EXAMPLES "Enable examples" ${PROJECT_IS_TOP_LEVEL})
 
-add_library(pollcoro INTERFACE)
+# -----------------------------------------------------------------------------
+# Main library (C++20 modules)
+# -----------------------------------------------------------------------------
+add_library(pollcoro)
 add_library(pollcoro::pollcoro ALIAS pollcoro)
 
-file(GLOB POLLCORO_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/pollcoro/*.hpp")
+target_compile_features(pollcoro PUBLIC cxx_std_20)
 
-target_sources(pollcoro INTERFACE
-    FILE_SET HEADERS
-    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include/pollcoro
-    FILES ${POLLCORO_HEADERS}
+target_sources(pollcoro
+    PUBLIC
+        FILE_SET CXX_MODULES
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+        FILES
+            # Main module
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/pollcoro.cppm
+            # Core partitions
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/waker.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/is_blocking.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/awaitable.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/stream_awaitable.cppm
+            # Basic awaitables
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/yield.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/ready.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/pending.cppm
+            # Utilities
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/ref.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/generic.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/map.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/single_event.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/sleep.cppm
+            # Allocator
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator.cppm
+            # Coroutine types
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/detail_promise.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/task.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/stream.cppm
+            # Execution
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/block_on.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/wait_first.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/wait_all.cppm
+            # Stream sources
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/iter.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/range.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/repeat.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/empty.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/enumerate.cppm
+            # Stream combinators
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/next.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/take.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/take_while.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/skip.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/skip_while.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/chain.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/zip.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/flatten.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/window.cppm
+            # Stream consumers
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/fold.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/last.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/nth.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/sync_iter.cppm
+            # Interop
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/co_awaitable.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/resumable.cppm
 )
-
-target_include_directories(pollcoro INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-
-# -----------------------------------------------------------------------------
-# Precompiled Headers (PCH) support
-# -----------------------------------------------------------------------------
-if(POLLCORO_PCH)
-    add_library(pollcoro_pch INTERFACE)
-    add_library(pollcoro::pch ALIAS pollcoro_pch)
-    
-    target_link_libraries(pollcoro_pch INTERFACE pollcoro)
-    
-    target_precompile_headers(pollcoro_pch INTERFACE
-        <algorithm>
-        <coroutine>
-        <cstddef>
-        <functional>
-        <iterator>
-        <map>
-        <memory>
-        <optional>
-        <tuple>
-        <typeinfo>
-        <utility>
-        <variant>
-        <vector>
-        <mutex>
-        <condition_variable>
-        <stdint.h>
-    )
-endif()
-
-# -----------------------------------------------------------------------------
-# C++20 Modules support (experimental)
-# -----------------------------------------------------------------------------
-if(POLLCORO_MODULES)
-    add_library(pollcoro_module)
-    add_library(pollcoro::module ALIAS pollcoro_module)
-    
-    target_compile_features(pollcoro_module PUBLIC cxx_std_20)
-    
-    target_sources(pollcoro_module
-        PUBLIC
-            FILE_SET CXX_MODULES
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
-            FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/pollcoro.cppm
-    )
-
-    target_include_directories(pollcoro_module PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    )
-endif()
 
 # -----------------------------------------------------------------------------
 # Installation targets
@@ -88,22 +85,9 @@ if(POLLCORO_INSTALL)
     
     install(TARGETS pollcoro
         EXPORT pollcoro-targets
-        FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/pollcoro
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FILE_SET CXX_MODULES DESTINATION ${CMAKE_INSTALL_LIBDIR}/pollcoro
     )
-    
-    if(POLLCORO_PCH)
-        install(TARGETS pollcoro_pch
-            EXPORT pollcoro-targets
-        )
-    endif()
-    
-    if(POLLCORO_MODULES)
-        install(TARGETS pollcoro_module
-            EXPORT pollcoro-targets
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            FILE_SET CXX_MODULES DESTINATION ${CMAKE_INSTALL_LIBDIR}/pollcoro
-        )
-    endif()
     
     install(EXPORT pollcoro-targets
         FILE pollcoro-targets.cmake

@@ -5,18 +5,16 @@
  * the main thread.
  */
 
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/single_event.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/yield.hpp>
 #include <thread>
+
+import pollcoro;
 
 template<typename... Args>
 void log(Args&&... args) {
     std::cout << "[" << std::this_thread::get_id() << "] ";
-    (std::cout << ... << args) << std::endl;
+    (std::cout << ... << std::forward<Args>(args)) << "\n";
 }
 
 pollcoro::task<> do_work() {

@@ -19,18 +19,19 @@
 #include <cppcoro/task.hpp>
 #include <cppcoro/when_all.hpp>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/resumable.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/yield.hpp>
+#include <optional>
 #include <thread>
+#include <tuple>
+#include <variant>
+
+import pollcoro;
 
 namespace {
 // Utility to print with thread id
 template<typename... Args>
 void log(Args&&... args) {
     std::cout << "[thread " << std::this_thread::get_id() << "] ";
-    (std::cout << ... << std::forward<Args>(args)) << std::endl;
+    (std::cout << ... << std::forward<Args>(args)) << '\n';
 }
 }  // namespace
 

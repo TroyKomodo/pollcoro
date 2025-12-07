@@ -4,14 +4,13 @@
  * Demonstrates wait_all and wait_first for concurrent operations.
  */
 
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/ready.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/wait_first.hpp>
-#include <pollcoro/yield.hpp>
+#include <optional>
+#include <tuple>
 #include <vector>
+
+import pollcoro;
 
 // =============================================================================
 // Helper tasks

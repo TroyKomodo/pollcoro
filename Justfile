@@ -13,4 +13,4 @@ clean:
     rm -rf build install
 
 fmt:
-    clang-format -i $(git ls-files '*.cc' '*.h' '*.hpp' '*.cpp')
+    git ls-files --cached --others --exclude-standard '*.cc' '*.h' '*.hpp' '*.cpp' '*.cppm' | while IFS= read -r f; do [ -f "$f" ] && printf '%s\0' "$f"; done | xargs -0 -r clang-format -i

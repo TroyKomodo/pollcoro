@@ -5,18 +5,11 @@
  * generic_awaitable<T> and generic_stream_awaitable<T>.
  */
 
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/generic.hpp>
-#include <pollcoro/map.hpp>
-#include <pollcoro/next.hpp>
-#include <pollcoro/range.hpp>
-#include <pollcoro/ready.hpp>
-#include <pollcoro/repeat.hpp>
-#include <pollcoro/stream.hpp>
-#include <pollcoro/take.hpp>
-#include <pollcoro/task.hpp>
 #include <vector>
+
+import pollcoro;
 
 // =============================================================================
 // Example 1: Generic awaitables for heterogeneous storage

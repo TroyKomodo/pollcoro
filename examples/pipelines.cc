@@ -6,27 +6,14 @@
  */
 
 #include <cmath>
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/chain.hpp>
-#include <pollcoro/enumerate.hpp>
-#include <pollcoro/flatten.hpp>
-#include <pollcoro/fold.hpp>
-#include <pollcoro/iter.hpp>
-#include <pollcoro/map.hpp>
-#include <pollcoro/next.hpp>
-#include <pollcoro/range.hpp>
-#include <pollcoro/repeat.hpp>
-#include <pollcoro/skip.hpp>
-#include <pollcoro/skip_while.hpp>
-#include <pollcoro/stream.hpp>
-#include <pollcoro/sync_iter.hpp>
-#include <pollcoro/take.hpp>
-#include <pollcoro/take_while.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/window.hpp>
-#include <pollcoro/zip.hpp>
+#include <optional>
 #include <string>
+#include <tuple>
+#include <vector>
+
+import pollcoro;
 
 // =============================================================================
 // Example 1: Zero-cost pipeline (fully non-blocking)

@@ -1,9 +1,8 @@
 #include "c_interop.h"
 
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/waker.hpp>
-#include <pollcoro/yield.hpp>
+#include <coroutine>
+
+import pollcoro;
 
 struct future_t {
     pollcoro::task<> task;

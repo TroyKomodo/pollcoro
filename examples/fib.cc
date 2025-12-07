@@ -2,11 +2,12 @@
  * Fibonacci using pollcoro
  */
 
+#include <coroutine>
 #include <iostream>
-#include <pollcoro/block_on.hpp>
-#include <pollcoro/task.hpp>
-#include <pollcoro/wait_all.hpp>
-#include <pollcoro/yield.hpp>
+#include <optional>
+#include <tuple>
+
+import pollcoro;
 
 pollcoro::task<int> async_fibonacci(int n) {
     if (n <= 1) {
