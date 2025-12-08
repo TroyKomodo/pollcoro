@@ -3,7 +3,6 @@ module;
 #include <coroutine>
 #include <cstdio>
 #include <exception>
-#include <functional>
 #include <optional>
 #include <type_traits>
 #include <utility>

@@ -4,7 +4,6 @@ module;
 #include <cstddef>
 #include <functional>
 #include <new>
-#include <type_traits>
 
 export module pollcoro:allocator;
 

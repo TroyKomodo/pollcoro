@@ -1,0 +1,66 @@
+diff --git a/include/cppcoro/detail/sync_wait_task.hpp b/include/cppcoro/detail/sync_wait_task.hpp
+index 9f95330..4e7087f 100644
+--- a/include/cppcoro/detail/sync_wait_task.hpp
++++ b/include/cppcoro/detail/sync_wait_task.hpp
+@@ -68,7 +68,7 @@ namespace cppcoro
+ 				return completion_notifier{};
+ 			}
+ 
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 			// HACK: This is needed to work around a bug in MSVC 2017.7/2017.8.
+ 			// See comment in make_sync_wait_task below.
+ 			template<typename Awaitable>
+@@ -245,7 +245,7 @@ namespace cppcoro
+ 
+ 		};
+ 
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 		// HACK: Work around bug in MSVC where passing a parameter by universal reference
+ 		// results in an error when passed a move-only type, complaining that the copy-constructor
+ 		// has been deleted. The parameter should be passed by reference and the compiler should
+diff --git a/include/cppcoro/detail/when_all_task.hpp b/include/cppcoro/detail/when_all_task.hpp
+index f15cd39..566976c 100644
+--- a/include/cppcoro/detail/when_all_task.hpp
++++ b/include/cppcoro/detail/when_all_task.hpp
+@@ -78,7 +78,7 @@ namespace cppcoro
+ 				assert(false);
+ 			}
+ 
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 			// HACK: This is needed to work around a bug in MSVC 2017.7/2017.8.
+ 			// See comment in make_when_all_task below.
+ 			template<typename Awaitable>
+@@ -303,7 +303,7 @@ namespace cppcoro
+ 			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+ 		when_all_task<RESULT> make_when_all_task(AWAITABLE awaitable)
+ 		{
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 			// HACK: Workaround another bug in MSVC where the expression 'co_yield co_await x' seems
+ 			// to completely ignore the co_yield an never calls promise.yield_value().
+ 			// The coroutine seems to be resuming the 'co_await' after the 'co_yield'
+@@ -331,7 +331,7 @@ namespace cppcoro
+ 			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+ 		when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
+ 		{
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 			// HACK: Workaround another bug in MSVC where the expression 'co_yield co_await x' seems
+ 			// to completely ignore the co_yield and never calls promise.yield_value().
+ 			// The coroutine seems to be resuming the 'co_await' after the 'co_yield'
+diff --git a/include/cppcoro/sync_wait.hpp b/include/cppcoro/sync_wait.hpp
+index c96c1d8..62c8cbb 100644
+--- a/include/cppcoro/sync_wait.hpp
++++ b/include/cppcoro/sync_wait.hpp
+@@ -18,7 +18,7 @@ namespace cppcoro
+ 	auto sync_wait(AWAITABLE&& awaitable)
+ 		-> typename cppcoro::awaitable_traits<AWAITABLE&&>::await_result_t
+ 	{
+-#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 19'20'00000
++#if CPPCORO_COMPILER_MSVC && CPPCORO_COMPILER_MSVC < 192000000
+ 		// HACK: Need to explicitly specify template argument to make_sync_wait_task
+ 		// here to work around a bug in MSVC when passing parameters by universal
+ 		// reference to a coroutine which causes the compiler to think it needs to

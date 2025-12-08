@@ -1,7 +1,6 @@
 module;
 
 #include <concepts>
-#include <type_traits>
 
 export module pollcoro:is_blocking;
 

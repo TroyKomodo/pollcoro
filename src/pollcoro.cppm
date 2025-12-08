@@ -17,6 +17,8 @@ export import :generic;
 export import :map;
 export import :single_event;
 export import :sleep;
+export import :mutex;
+export import :shared_mutex;
 
 // Allocator
 export import :allocator;

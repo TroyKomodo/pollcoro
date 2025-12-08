@@ -13,14 +13,14 @@
       };
     in
     {
-      devShells.${system}.default = pkgs.mkShell {
+      devShells.${system}.default = pkgs.mkShell.override {
+        stdenv = pkgs.overrideCC pkgs.gcc14Stdenv pkgs.llvmPackages_20.clang;
+      } {
         name = "pollcoro-shell";
 
         buildInputs = with pkgs; [
           git
-          stdenv
           bash
-          gcc
           cmake
           ninja
           pkg-config
@@ -29,11 +29,12 @@
           valgrind
           llvmPackages_20.clang-tools
           just
-          coreutils
         ];
 
         shellHook = ''
-          export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.stdenv.cc.cc.lib}/lib"
+          set -eo pipefail
+
+          export PATH="${pkgs.llvmPackages_20.clang-tools}/bin:$PATH"
         '';
       };
     };

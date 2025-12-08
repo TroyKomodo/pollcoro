@@ -38,7 +38,7 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
     template<size_t... Is>
     state_type poll_impl(const waker& w, std::index_sequence<Is...>) {
         state_type result = state_type::done();
-        ((current_index_ == Is ? (result = poll_stream<Is>(w), true) : false) || ...);
+        std::ignore = ((current_index_ == Is ? (result = poll_stream<Is>(w), true) : false) || ...);
         return result;
     }
 

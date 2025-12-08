@@ -4,6 +4,7 @@ module;
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <type_traits>
 #include <utility>
 
 export module pollcoro:sleep;

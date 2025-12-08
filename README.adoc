@@ -137,7 +137,7 @@ Link against `pollcoro::pollcoro` and use `import pollcoro;` in your code:
 target_link_libraries(your_target PRIVATE pollcoro::pollcoro)
 ----
 
-NOTE: Requires CMake 3.28+ and a C++20 modules-capable compiler (GCC 14+, Clang 16+, MSVC 19.34+).
+NOTE: Requires CMake 3.28+ and a C++20 modules-capable compiler (Clang 16+, MSVC 19.34+). GCC has poor modules support and is not recommended.
 
 == Quick Start
 
@@ -174,6 +174,7 @@ The `examples/` directory contains several demonstrations:
 * link:examples/generic.cc[generic.cc] — Type-erased awaitables and streams with `generic_awaitable` and `generic_stream_awaitable`
 * link:examples/wait_combinators.cc[wait_combinators.cc] — Concurrent operations with `wait_all` and `wait_first`
 * link:examples/thread_callback.cc[thread_callback.cc] — Bridging threaded callbacks into coroutines using `single_event`
+* link:examples/mutex.cc[mutex.cc] — Async mutex and shared_mutex safe to hold across yield points
 * link:examples/modules.cc[modules.cc] — Using pollcoro with C++20 module imports
 * link:examples/c_interop.c[c_interop.c] / link:examples/c_interop_impl.cc[c_interop_impl.cc] — Exposing pollcoro tasks through a C API
 * link:examples/exceptions.cc[exceptions.cc] — Exception handling and propagation in coroutines
@@ -274,6 +275,63 @@ int main() {
         std::cerr << "Uncaught exception: " << e.what() << std::endl;
     }
 }
+----
+
+=== Mutexes
+
+Standard mutexes (`std::mutex`) are **unsafe to hold across yield points** in coroutines. This is because a mutex can only be unlocked on the same thread that locked it, but after a `co_await`, your coroutine might be polled by a different thread.
+
+[source,cpp]
+----
+// DANGEROUS: don't do this!
+pollcoro::task<> bad_example() {
+    std::mutex mtx;
+    std::unique_lock lock(mtx);
+    co_await some_async_operation();  // Might resume on different thread!
+    // Unlocking here could be on a different thread than locking — undefined behavior
+}
+----
+
+pollcoro provides `mutex` and `shared_mutex` types that are safe to use across yield points:
+
+[source,cpp]
+----
+pollcoro::mutex mtx;
+
+pollcoro::task<> safe_example() {
+    auto guard = co_await mtx.lock();
+    co_await some_async_operation();  // Safe! Lock is coroutine-aware
+    // Guard released safely when it goes out of scope
+}
+
+pollcoro::shared_mutex smtx;
+
+pollcoro::task<> reader() {
+    auto guard = co_await smtx.lock_shared();
+    // Multiple readers can hold shared locks concurrently
+    co_await read_operation();
+}
+
+pollcoro::task<> writer() {
+    auto guard = co_await smtx.lock();
+    // Exclusive access for writing
+    co_await write_operation();
+}
+----
+
+NOTE: `mutex` and `shared_mutex` are **non-copyable and non-movable**. They must be declared in a stable location (class member, global, etc.) and accessed by reference. This ensures the internal state address remains valid for all guards.
+
+[source,cpp]
+----
+struct my_service {
+    pollcoro::mutex mtx;  // Stable location as member
+    int counter = 0;
+
+    pollcoro::task<> increment() {
+        auto guard = co_await mtx.lock();
+        ++counter;
+    }
+};
 ----
 
 == API Reference
@@ -1429,8 +1487,10 @@ Contributions welcome!
 
 == Requirements
 
-* C++20 compiler with modules support (GCC 14+, Clang 16+, MSVC 19.34+)
+* C++20 compiler with modules support (Clang 16+, MSVC 19.34+)
 * CMake 3.28+
+
+WARNING: **GCC has very poor C++20 modules support** and may or may not compile pollcoro. We recommend using Clang for the best experience.
 
 == License
 

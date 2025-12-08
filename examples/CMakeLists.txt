@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.28)
 
 include(../cmake/CPM.cmake)
 
+# See https://github.com/cpm-cmake/CPM.cmake/issues/577
+set(CPM_SOURCE_CACHE ${CMAKE_CURRENT_BINARY_DIR}/.cpm-cache)
+
 project(pollcoro_examples)
 
 add_executable(fib fib.cc)
@@ -27,7 +30,15 @@ add_executable(c_interop c_interop.c)
 target_link_libraries(c_interop PRIVATE c_interop_impl)
 set_target_properties(c_interop PROPERTIES C_STANDARD 11 LANGUAGE C)
 
-CPMAddPackage("gh:andreasbuhr/cppcoro#f05170fbc71aaae06dc31e32812f1caba9525377")
+# This is because clang-scan-deps doesnt parse the `'` literal correctly
+# in preprocessor definitions.
+# see https://github.com/llvm/llvm-project/issues/88896
+CPMAddPackage(
+  NAME cppcoro
+  GIT_REPOSITORY https://github.com/andreasbuhr/cppcoro.git
+  GIT_TAG f05170fbc71aaae06dc31e32812f1caba9525377
+  PATCHES "${CMAKE_CURRENT_SOURCE_DIR}/patches/cppcoro.patch"
+)
 target_compile_options(cppcoro PRIVATE -Wno-unused-result)
 
 find_package(Threads REQUIRED)
@@ -86,3 +97,7 @@ set_target_properties(interop_cppcoro PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MO
 add_executable(interop_asio interop_asio.cc)
 target_link_libraries(interop_asio PRIVATE pollcoro::pollcoro asio)
 set_target_properties(interop_asio PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MODULES ON)
+
+add_executable(mutex mutex.cc)
+target_link_libraries(mutex PRIVATE pollcoro::pollcoro)
+set_target_properties(mutex PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MODULES ON)

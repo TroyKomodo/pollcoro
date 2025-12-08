@@ -40,6 +40,8 @@ target_sources(pollcoro
             ${CMAKE_CURRENT_SOURCE_DIR}/src/map.cppm
             ${CMAKE_CURRENT_SOURCE_DIR}/src/single_event.cppm
             ${CMAKE_CURRENT_SOURCE_DIR}/src/sleep.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/mutex.cppm
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/shared_mutex.cppm
             # Allocator
             ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator.cppm
             # Coroutine types

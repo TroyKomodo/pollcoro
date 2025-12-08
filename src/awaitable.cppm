@@ -2,7 +2,6 @@ module;
 
 #include <concepts>
 #include <optional>
-#include <tuple>
 #include <type_traits>
 
 export module pollcoro:awaitable;
