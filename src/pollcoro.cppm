@@ -1,29 +1,3 @@
-module;
-
-#include <algorithm>
-#include <array>
-#include <atomic>
-#include <concepts>
-#include <condition_variable>
-#include <coroutine>
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <deque>
-#include <exception>
-#include <functional>
-#include <iterator>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <new>
-#include <optional>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <variant>
-#include <vector>
-
 export module pollcoro;
 
 // Core types (order matters - dependencies first)
