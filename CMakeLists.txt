@@ -10,6 +10,23 @@ option(POLLCORO_INSTALL "Generate install targets" ${PROJECT_IS_TOP_LEVEL})
 option(POLLCORO_TESTS "Enable tests" ${PROJECT_IS_TOP_LEVEL})
 option(POLLCORO_EXAMPLES "Enable examples" ${PROJECT_IS_TOP_LEVEL})
 
+if(PROJECT_IS_TOP_LEVEL)
+   option(ADDRESS_SANITIZER "Enable address sanitizer" OFF)
+
+    if(ADDRESS_SANITIZER)
+        add_compile_options(-fsanitize=address)
+        add_link_options(-fsanitize=address)
+    endif()
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_BUILD_TYPE STREQUAL "Release")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+        else()
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -Wno-#warnings")
+        endif()
+    endif()
+endif()
+
 # -----------------------------------------------------------------------------
 # Main library (C++20 modules)
 # -----------------------------------------------------------------------------

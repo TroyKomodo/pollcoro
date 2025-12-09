@@ -1,3 +1,10 @@
+module;
+
+#include <condition_variable>
+#include <mutex>
+#include <shared_mutex>
+#include <thread>
+
 export module pollcoro;
 
 // Core types (order matters - dependencies first)
