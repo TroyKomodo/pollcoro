@@ -51,8 +51,9 @@ class sleep_awaitable : public awaitable_always_blocks {
     }
 
   public:
-    sleep_awaitable(typename Timer::time_point deadline, Timer timer)
-        : timer_(std::forward<Timer>(timer)),
+    template<typename T = Timer>
+    sleep_awaitable(typename Timer::time_point deadline, T&& timer)
+        : timer_(std::forward<T>(timer)),
           deadline_(deadline),
           shared_(std::make_shared<shared>()) {}
 
@@ -64,7 +65,6 @@ class sleep_awaitable : public awaitable_always_blocks {
     sleep_awaitable& operator=(const sleep_awaitable& other) = delete;
 
     sleep_awaitable(sleep_awaitable&& other) noexcept {
-        reset();
         shared_ = std::move(other.shared_);
         started_ = other.started_;
         deadline_ = other.deadline_;

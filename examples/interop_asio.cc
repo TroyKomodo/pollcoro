@@ -110,10 +110,10 @@ class from_asio_awaitable : public pollcoro::awaitable_always_blocks {
     Factory factory_;
 
   public:
-    from_asio_awaitable(asio::any_io_executor executor, Factory&& factory)
+    from_asio_awaitable(asio::any_io_executor executor, Factory factory)
         : state_(std::make_shared<state_type>()),
           executor_(std::move(executor)),
-          factory_(std::forward<Factory>(factory)) {}
+          factory_(std::move(factory)) {}
 
     from_asio_awaitable(const from_asio_awaitable&) = delete;
     from_asio_awaitable& operator=(const from_asio_awaitable&) = delete;
@@ -187,7 +187,7 @@ class from_asio_awaitable : public pollcoro::awaitable_always_blocks {
 ///   });
 ///   int result = co_await pollable;  // in a pollcoro task
 template<typename Factory>
-auto from_asio(asio::any_io_executor executor, Factory&& factory) {
+auto from_asio(asio::any_io_executor executor, Factory factory) {
     return detail::from_asio_awaitable(std::move(executor), std::forward<Factory>(factory));
 }
 
@@ -212,7 +212,7 @@ auto from_asio(asio::io_context& ctx, Factory&& factory) {
 ///       );
 ///   }
 template<pollcoro::awaitable Awaitable, typename CompletionToken>
-auto to_asio(asio::any_io_executor executor, Awaitable&& aw, CompletionToken&& token) {
+auto to_asio(asio::any_io_executor executor, Awaitable aw, CompletionToken&& token) {
     using result_type = pollcoro::awaitable_result_t<Awaitable>;
     using signature = detail::poll_signature_t<result_type>;
 
@@ -288,7 +288,7 @@ auto to_asio(asio::any_io_executor executor, Awaitable&& aw, CompletionToken&& t
             op->poll();
         },
         std::forward<CompletionToken>(token),
-        std::forward<Awaitable>(aw)
+        std::move(aw)
     );
 }
 

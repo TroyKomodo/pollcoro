@@ -92,7 +92,7 @@ class stream_storage : public promise_base {
             }
         };
 
-        return transformed_promise(*this, std::forward<StreamAwaitable>(stream_awaitable));
+        return transformed_promise(*this, std::move(stream_awaitable));
     }
 
     std::suspend_always yield_value(T value) {
@@ -155,7 +155,7 @@ auto transform_awaitable(promise_type& promise, Awaitable awaitable) {
         }
     };
 
-    return transformed_promise(promise, std::forward<Awaitable>(awaitable));
+    return transformed_promise(promise, std::move(awaitable));
 }
 
 template<typename task, typename result, typename storage>
