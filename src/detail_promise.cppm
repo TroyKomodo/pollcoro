@@ -57,9 +57,6 @@ class stream_storage : public promise_base {
             stream_storage& promise;
             StreamAwaitable stream_awaitable;
 
-            transformed_promise(stream_storage& promise, StreamAwaitable&& stream_awaitable)
-                : promise(promise), stream_awaitable(std::move(stream_awaitable)) {}
-
             constexpr bool await_ready() {
                 return false;
             }
@@ -92,7 +89,7 @@ class stream_storage : public promise_base {
             }
         };
 
-        return transformed_promise(*this, std::move(stream_awaitable));
+        return transformed_promise{*this, std::move(stream_awaitable)};
     }
 
     std::suspend_always yield_value(T value) {
@@ -116,9 +113,6 @@ auto transform_awaitable(promise_type& promise, Awaitable&& awaitable) {
     struct transformed_promise : task_storage<result_type> {
         promise_type& promise;
         Awaitable awaitable;
-
-        transformed_promise(promise_type& promise, Awaitable&& awaitable)
-            : promise(promise), awaitable(std::move(awaitable)) {}
 
         constexpr bool await_ready() {
             return false;
@@ -155,7 +149,7 @@ auto transform_awaitable(promise_type& promise, Awaitable&& awaitable) {
         }
     };
 
-    return transformed_promise(promise, std::move(awaitable));
+    return transformed_promise{{}, promise, std::move(awaitable)};
 }
 
 template<typename task, typename result, typename storage>
