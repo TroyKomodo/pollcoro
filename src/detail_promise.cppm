@@ -207,10 +207,8 @@ struct promise_type : public storage {
     }
 
     template<awaitable Awaitable>
-    auto await_transform(Awaitable&& awaitable) {
-        return transform_awaitable<promise_type, Awaitable>(
-            *this, std::forward<Awaitable>(awaitable)
-        );
+    auto await_transform(Awaitable awaitable) {
+        return transform_awaitable<promise_type, Awaitable>(*this, std::move(awaitable));
     }
 };
 
