@@ -30,42 +30,59 @@ class iter_stream_awaitable : public awaitable_never_blocks {
     Iterator current_;
     Iterator end_;
 
+    template<typename S = Storage>
+    requires(!std::is_void_v<S>)
+    iter_stream_awaitable(
+        typename std::iterator_traits<Iterator>::difference_type offset,
+        iter_stream_awaitable&& other
+    )
+        : storage_(std::move(other.storage_)) {
+        current_ = std::next(std::begin(storage_), offset);
+        end_ = std::end(storage_);
+    }
+
   public:
     // Non-owning constructor (iterator pair)
     template<typename S = Storage>
     requires std::is_void_v<S>
-    constexpr iter_stream_awaitable(Iterator begin, Iterator end)
-        : storage_{}, current_(begin), end_(end) {}
+    iter_stream_awaitable(Iterator begin, Iterator end)
+        : storage_{}, current_(std::move(begin)), end_(std::move(end)) {}
 
     // Owning constructor (container)
     template<typename S = Storage>
     requires(!std::is_void_v<S>)
-    constexpr iter_stream_awaitable(S&& container)
-        : storage_(std::forward<S>(container)),
-          current_(std::begin(storage_)),
-          end_(std::end(storage_)) {}
+    iter_stream_awaitable(S container) : storage_(std::move(container)) {
+        current_ = std::begin(storage_);
+        end_ = std::end(storage_);
+    }
 
     // Non-owning move constructor
     template<typename S = Storage>
     requires std::is_void_v<S>
-    constexpr iter_stream_awaitable(iter_stream_awaitable&& other)
-        : storage_{}, current_(other.current_), end_(other.end_) {}
+    iter_stream_awaitable(iter_stream_awaitable&& other)
+        : storage_{}, current_(std::move(other.current_)), end_(std::move(other.end_)) {}
 
     // Owning move constructor
     template<typename S = Storage>
     requires(!std::is_void_v<S>)
-    constexpr iter_stream_awaitable(iter_stream_awaitable&& other)
-        : storage_(std::move(other.storage_)),
-          current_(
-              std::next(
-                  std::begin(storage_), std::distance(std::begin(other.storage_), other.current_)
-              )
-          ),
-          end_(std::end(storage_)) {}
+    iter_stream_awaitable(iter_stream_awaitable&& other)
+        : iter_stream_awaitable(
+              std::distance(std::begin(other.storage_), other.current_), std::move(other)
+          ) {}
 
-    constexpr iter_stream_awaitable& operator=(iter_stream_awaitable&&) = delete;
-    constexpr iter_stream_awaitable(const iter_stream_awaitable&) = delete;
-    constexpr iter_stream_awaitable& operator=(const iter_stream_awaitable&) = delete;
+    iter_stream_awaitable& operator=(iter_stream_awaitable&& other) {
+        if (this != &other) {
+            auto offset = std::distance(std::begin(other.storage_), other.current_);
+            storage_ = std::move(other.storage_);
+            current_ = std::next(std::begin(storage_), offset);
+            end_ = std::end(storage_);
+        }
+
+        return *this;
+    }
+
+    iter_stream_awaitable(const iter_stream_awaitable&) = delete;
+    iter_stream_awaitable& operator=(const iter_stream_awaitable&) = delete;
 
     constexpr state_type poll_next(const waker&) {
         if (current_ == end_) {
@@ -86,20 +103,12 @@ constexpr auto iter(Iterator begin, Iterator end) {
     return detail::iter_stream_awaitable<Iterator, detail::iter_mode::copy>(begin, end);
 }
 
-// From lvalue range (copy, non-owning)
-template<typename Range>
-constexpr auto iter(Range& range) {
-    return iter(std::begin(range), std::end(range));
-}
-
 // From rvalue range (copy, owning)
-template<typename Range>
-requires(!std::is_lvalue_reference_v<Range>)
-constexpr auto iter(Range&& range) {
-    using Storage = std::remove_cvref_t<Range>;
+template<typename Storage>
+constexpr auto iter(Storage storage) {
     using Iter = decltype(std::begin(std::declval<Storage&>()));
     return detail::iter_stream_awaitable<Iter, detail::iter_mode::copy, Storage>(
-        std::forward<Range>(range)
+        std::move(storage)
     );
 }
 
@@ -109,20 +118,12 @@ constexpr auto iter_move(Iterator begin, Iterator end) {
     return detail::iter_stream_awaitable<Iterator, detail::iter_mode::move>(begin, end);
 }
 
-// From lvalue range (move, non-owning)
-template<typename Range>
-constexpr auto iter_move(Range& range) {
-    return iter_move(std::begin(range), std::end(range));
-}
-
 // From rvalue range (move elements, owning container)
-template<typename Range>
-requires(!std::is_lvalue_reference_v<Range>)
-constexpr auto iter_move(Range&& range) {
-    using Storage = std::remove_cvref_t<Range>;
+template<typename Storage>
+constexpr auto iter_move(Storage storage) {
     using Iter = decltype(std::begin(std::declval<Storage&>()));
     return detail::iter_stream_awaitable<Iter, detail::iter_mode::move, Storage>(
-        std::forward<Range>(range)
+        std::move(storage)
     );
 }
 

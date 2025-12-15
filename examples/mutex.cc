@@ -13,10 +13,10 @@
 
 #include <coroutine>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <optional>
 
 import pollcoro;
 
@@ -44,9 +44,7 @@ pollcoro::task<> test_basic_mutex() {
 
     // Run multiple tasks concurrently that all try to increment the counter
     co_await pollcoro::wait_all(
-        increment_counter(1, 3),
-        increment_counter(2, 3),
-        increment_counter(3, 3)
+        increment_counter(1, 3), increment_counter(2, 3), increment_counter(3, 3)
     );
 
     std::cout << "Final counter value: " << shared_counter << std::endl;
@@ -136,11 +134,7 @@ pollcoro::task<> test_shared_mutex() {
 
     // Multiple readers can run concurrently
     std::cout << "Multiple concurrent readers:" << std::endl;
-    co_await pollcoro::wait_all(
-        reader(1),
-        reader(2),
-        reader(3)
-    );
+    co_await pollcoro::wait_all(reader(1), reader(2), reader(3));
 
     // Writers get exclusive access
     std::cout << "\nWriter with exclusive access:" << std::endl;
@@ -148,10 +142,7 @@ pollcoro::task<> test_shared_mutex() {
 
     // More readers see the updated value
     std::cout << "\nReaders after write:" << std::endl;
-    co_await pollcoro::wait_all(
-        reader(4),
-        reader(5)
-    );
+    co_await pollcoro::wait_all(reader(4), reader(5));
 
     std::cout << std::endl;
 }
@@ -188,8 +179,8 @@ pollcoro::task<> test_shared_mutex_try_lock() {
 
     // Shared lock fails while exclusive is held
     auto shared3 = mtx.try_lock_shared();
-    std::cout << "  try_lock_shared while writer active: "
-              << (shared3 ? "success" : "failed") << std::endl;
+    std::cout << "  try_lock_shared while writer active: " << (shared3 ? "success" : "failed")
+              << std::endl;
 
     std::cout << std::endl;
 
@@ -341,4 +332,3 @@ int main() {
 
     return 0;
 }
-

@@ -1,12 +1,12 @@
 module;
 
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <utility>
-#include <atomic>
 
 export module pollcoro:shared_mutex;
 
@@ -92,8 +92,7 @@ struct shared_mutex_state {
 class shared_lock_guard {
     detail::shared_mutex_state* state_;
 
-    explicit shared_lock_guard(detail::shared_mutex_state* state)
-        : state_(state) {}
+    explicit shared_lock_guard(detail::shared_mutex_state* state) : state_(state) {}
 
     friend class shared_mutex_read_awaitable;
     friend class shared_mutex;
@@ -140,8 +139,7 @@ class shared_lock_guard {
 class unique_lock_guard {
     detail::shared_mutex_state* state_;
 
-    explicit unique_lock_guard(detail::shared_mutex_state* state)
-        : state_(state) {}
+    explicit unique_lock_guard(detail::shared_mutex_state* state) : state_(state) {}
 
     friend class shared_mutex_write_awaitable;
     friend class shared_mutex;
@@ -202,8 +200,7 @@ class shared_mutex_read_awaitable : public awaitable_always_blocks {
 
   public:
     explicit shared_mutex_read_awaitable(detail::shared_mutex_state* state)
-        : state_(state),
-          waiter_(std::make_shared<detail::shared_waiter>()) {
+        : state_(state), waiter_(std::make_shared<detail::shared_waiter>()) {
         waiter_->is_writer_ = false;
     }
 
@@ -241,9 +238,10 @@ class shared_mutex_read_awaitable : public awaitable_always_blocks {
         if (!registered_) {
             // Can acquire immediately if no writer active and no writers waiting
             // (writer-preference to prevent writer starvation)
-            bool has_waiting_writer = std::any_of(
-                state_->waiters_.begin(), state_->waiters_.end(),
-                [](const auto& w) { return w->is_writer_; });
+            bool has_waiting_writer =
+                std::any_of(state_->waiters_.begin(), state_->waiters_.end(), [](const auto& w) {
+                    return w->is_writer_;
+                });
 
             if (!state_->writer_active_ && !has_waiting_writer) {
                 ++state_->readers_;
@@ -284,8 +282,7 @@ class shared_mutex_write_awaitable : public awaitable_always_blocks {
 
   public:
     explicit shared_mutex_write_awaitable(detail::shared_mutex_state* state)
-        : state_(state),
-          waiter_(std::make_shared<detail::shared_waiter>()) {
+        : state_(state), waiter_(std::make_shared<detail::shared_waiter>()) {
         waiter_->is_writer_ = true;
     }
 
@@ -400,9 +397,10 @@ class shared_mutex {
     /// writer currently holds the lock or is waiting.
     std::optional<shared_lock_guard> try_lock_shared() {
         std::unique_lock lock(state_.mtx_);
-        bool has_waiting_writer = std::any_of(
-            state_.waiters_.begin(), state_.waiters_.end(),
-            [](const auto& w) { return w->is_writer_; });
+        bool has_waiting_writer =
+            std::any_of(state_.waiters_.begin(), state_.waiters_.end(), [](const auto& w) {
+                return w->is_writer_;
+            });
 
         if (!state_.writer_active_ && !has_waiting_writer) {
             ++state_.readers_;
@@ -425,4 +423,3 @@ class shared_mutex {
 };
 
 }  // namespace pollcoro
-

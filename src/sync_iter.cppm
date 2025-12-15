@@ -13,9 +13,9 @@ import :waker;
 export namespace pollcoro {
 template<stream_awaitable StreamAwaitable>
 class sync_iter_stream_iterator {
-    using value_type = stream_awaitable_result_t<std::decay_t<StreamAwaitable>>;
+    using value_type = stream_awaitable_result_t<StreamAwaitable>;
 
-    std::decay_t<StreamAwaitable> stream_;
+    StreamAwaitable stream_;
     std::optional<value_type> current_value_;
     bool at_end_ = false;
 
@@ -84,8 +84,7 @@ class sync_iter_stream_iterator {
         }
     };
 
-    explicit sync_iter_stream_iterator(StreamAwaitable&& stream)
-        : stream_(std::forward<StreamAwaitable>(stream)) {
+    explicit sync_iter_stream_iterator(StreamAwaitable stream) : stream_(std::move(stream)) {
         // Fetch the first element
         advance();
     }
@@ -100,8 +99,8 @@ class sync_iter_stream_iterator {
 };
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto sync_iter(StreamAwaitable&& stream) {
-    return sync_iter_stream_iterator<StreamAwaitable>(std::forward<StreamAwaitable>(stream));
+constexpr auto sync_iter(StreamAwaitable stream) {
+    return sync_iter_stream_iterator<StreamAwaitable>(std::move(stream));
 }
 
 }  // namespace pollcoro

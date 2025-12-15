@@ -1,5 +1,7 @@
 module;
 
+#include <utility>
+
 export module pollcoro:range;
 
 import :is_blocking;
@@ -15,7 +17,7 @@ class range_stream_awaitable : public awaitable_never_blocks {
     T end_;
 
   public:
-    range_stream_awaitable(T begin, T end) : current_(begin), end_(end) {}
+    range_stream_awaitable(T begin, T end) : current_(std::move(begin)), end_(std::move(end)) {}
 
     state_type poll_next(const waker& w) {
         if (current_ >= end_) {
@@ -26,12 +28,18 @@ class range_stream_awaitable : public awaitable_never_blocks {
 };
 
 template<typename T>
+range_stream_awaitable(T, T) -> range_stream_awaitable<T>;
+
+template<typename T>
+range_stream_awaitable(T) -> range_stream_awaitable<T>;
+
+template<typename T>
 constexpr auto range(T begin, T end) {
-    return range_stream_awaitable<T>(begin, end);
+    return range_stream_awaitable<T>(std::move(begin), std::move(end));
 }
 
 template<typename T>
 constexpr auto range(T end) {
-    return range_stream_awaitable<T>(T(0), end);
+    return range_stream_awaitable<T>(T(0), std::move(end));
 }
 }  // namespace pollcoro

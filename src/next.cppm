@@ -33,8 +33,11 @@ class stream_next_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 };
 
 template<stream_awaitable StreamAwaitable>
+stream_next_awaitable(StreamAwaitable&) -> stream_next_awaitable<StreamAwaitable>;
+
+template<stream_awaitable StreamAwaitable>
 constexpr auto next(StreamAwaitable& stream) {
-    return stream_next_awaitable<StreamAwaitable>(stream);
+    return stream_next_awaitable(stream);
 }
 
 }  // namespace pollcoro

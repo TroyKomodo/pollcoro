@@ -70,8 +70,8 @@ class to_pollable_adapter {
     using state_type = pollcoro::awaitable_state<result_type>;
 
   public:
-    to_pollable_adapter(task_t&& task, std::shared_ptr<shared_state_t> state)
-        : task_(std::forward<task_t>(task)), state_(std::move(state)) {}
+    to_pollable_adapter(task_t task, std::shared_ptr<shared_state_t> state)
+        : task_(std::move(task)), state_(std::move(state)) {}
 
     state_type poll(const pollcoro::waker& w) {
         return state_->poll(w);
@@ -128,7 +128,7 @@ struct resumable_promise_storage<void> {
 }  // namespace detail
 
 template<co_awaitable Resumable>
-auto to_pollable(Resumable&& resumable) {
+auto to_pollable(Resumable resumable) {
     using result_type = co_await_result_t<Resumable>;
     using shared_state_t = detail::resumable_shared_state<result_type>;
     auto state = std::make_shared<shared_state_t>();
@@ -195,7 +195,7 @@ auto to_pollable(Resumable&& resumable) {
         } catch (...) {
             state->set_exception(std::current_exception());
         }
-    })(std::forward<Resumable>(resumable), state);
+    })(std::move(resumable), state);
 
     task.resume();
 
@@ -203,8 +203,8 @@ auto to_pollable(Resumable&& resumable) {
 }
 
 template<awaitable Awaitable, co_scheduler Scheduler>
-auto to_resumable(Awaitable&& awaitable, Scheduler& scheduler) {
-    using result_type = awaitable_result_t<std::decay_t<Awaitable>>;
+auto to_resumable(Awaitable awaitable, Scheduler&& scheduler) {
+    using result_type = awaitable_result_t<Awaitable>;
 
     struct task_t {
         struct promise_type : detail::resumable_promise_storage<result_type> {
@@ -285,9 +285,9 @@ auto to_resumable(Awaitable&& awaitable, Scheduler& scheduler) {
         }
     };
 
-    auto coro = [](std::decay_t<Awaitable> inner_awaitable, Scheduler& sched) -> task_t {
+    auto coro = [](Awaitable inner_awaitable, Scheduler&& scheduler) -> task_t {
         struct poll_awaiter {
-            std::decay_t<Awaitable>& awaitable;
+            Awaitable& awaitable;
             mutable awaitable_state<result_type> state;
 
             bool await_ready() const noexcept {
@@ -330,9 +330,9 @@ auto to_resumable(Awaitable&& awaitable, Scheduler& scheduler) {
                 }
             }
             // Yield to scheduler before next poll
-            co_await sched.schedule();
+            co_await scheduler.schedule();
         }
-    }(std::forward<Awaitable>(awaitable), scheduler);
+    }(std::move(awaitable), std::forward<Scheduler>(scheduler));
 
     return coro;
 }

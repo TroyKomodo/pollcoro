@@ -14,14 +14,14 @@ import :waker;
 export namespace pollcoro {
 template<stream_awaitable... StreamAwaitables>
 class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> {
-    std::tuple<std::decay_t<StreamAwaitables>...> streams_;
+    std::tuple<StreamAwaitables...> streams_;
     std::tuple<std::optional<stream_awaitable_result_t<StreamAwaitables>>...> buffered_;
 
     using result_type = std::tuple<stream_awaitable_result_t<StreamAwaitables>...>;
     using state_type = stream_awaitable_state<result_type>;
 
     template<stream_awaitable S, stream_awaitable... Ss>
-    friend zip_stream_awaitable<S, Ss...> operator|(S&& stream, zip_stream_awaitable<Ss...>&& zip);
+    friend zip_stream_awaitable<S, Ss...> operator|(S stream, zip_stream_awaitable<Ss...> zip);
 
     template<size_t... Is>
     state_type poll_impl(const waker& w, std::index_sequence<Is...>) {
@@ -60,10 +60,9 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
     }
 
   public:
-    zip_stream_awaitable(StreamAwaitables&&... streams)
-        : streams_(std::forward<StreamAwaitables>(streams)...) {}
+    zip_stream_awaitable(StreamAwaitables... streams) : streams_(std::move(streams)...) {}
 
-    explicit zip_stream_awaitable(std::tuple<std::decay_t<StreamAwaitables>...> streams)
+    explicit zip_stream_awaitable(std::tuple<StreamAwaitables...> streams)
         : streams_(std::move(streams)) {}
 
     state_type poll_next(const waker& w) {
@@ -72,15 +71,15 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
 };
 
 template<stream_awaitable... StreamAwaitables>
-constexpr auto zip(StreamAwaitables&&... streams) {
-    return zip_stream_awaitable<StreamAwaitables...>(std::forward<StreamAwaitables>(streams)...);
+constexpr auto zip(StreamAwaitables... streams) {
+    return zip_stream_awaitable<StreamAwaitables...>(std::move(streams)...);
 }
 
 template<stream_awaitable StreamAwaitable, stream_awaitable... StreamAwaitables>
 zip_stream_awaitable<StreamAwaitable, StreamAwaitables...>
-operator|(StreamAwaitable&& stream, zip_stream_awaitable<StreamAwaitables...>&& zip) {
-    return zip_stream_awaitable<StreamAwaitable, StreamAwaitables...>(std::tuple_cat(
-        std::make_tuple(std::forward<StreamAwaitable>(stream)), std::move(zip.streams_)
-    ));
+operator|(StreamAwaitable stream, zip_stream_awaitable<StreamAwaitables...> zip) {
+    return zip_stream_awaitable<StreamAwaitable, StreamAwaitables...>(
+        std::tuple_cat(std::make_tuple(std::move(stream)), std::move(zip.streams_))
+    );
 }
 }  // namespace pollcoro

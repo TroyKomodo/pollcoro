@@ -11,7 +11,7 @@ import :waker;
 
 export namespace pollcoro {
 template<awaitable Awaitable>
-auto block_on(Awaitable&& awaitable) -> awaitable_result_t<Awaitable> {
+auto block_on(Awaitable awaitable) -> awaitable_result_t<Awaitable> {
     if constexpr (!is_blocking_v<Awaitable>) {
         while (true) {
             auto result = awaitable.poll(waker());

@@ -1,6 +1,7 @@
 #include "c_interop.h"
 
 #include <coroutine>
+#include <utility>
 
 import pollcoro;
 
@@ -29,6 +30,6 @@ future_poll_result_t future_poll(future_t* future, waker_t waker) {
 }
 
 void future_wait_until_ready(future_t* future) {
-    pollcoro::block_on(future->task);
+    pollcoro::block_on(std::move(future->task));
 }
 }

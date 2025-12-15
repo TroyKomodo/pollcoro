@@ -3,6 +3,7 @@ module;
 #include <concepts>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 export module pollcoro:awaitable;
 
@@ -30,7 +31,7 @@ class awaitable_state {
     }
 
     T take_result() {
-        return std::move(*result_);
+        return *std::exchange(result_, std::nullopt);
     }
 
     template<typename Func>
@@ -97,12 +98,15 @@ struct awaitable_state_traits<awaitable_state<T>> {
     using result_type = T;
 };
 
+template<typename T>
+concept is_awaitable_state = is_awaitable_state_v<T>;
+
 }  // namespace detail
 
 template<typename T>
 concept awaitable = requires(T t, const waker& w) {
-    { t.poll(w) } -> std::same_as<awaitable_state<typename decltype(t.poll(w))::result_type>>;
-} && detail::is_awaitable_state_v<decltype(std::declval<T>().poll(std::declval<const waker&>()))>;
+    { t.poll(w) } -> detail::is_awaitable_state;
+};
 
 template<awaitable T>
 using awaitable_result_t = typename detail::awaitable_state_traits<

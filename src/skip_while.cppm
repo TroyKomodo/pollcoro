@@ -23,17 +23,16 @@ template<
     stream_awaitable StreamAwaitable,
     detail::skip_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
 class skip_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
-    std::decay_t<StreamAwaitable> stream_;
-    std::decay_t<Predicate> predicate_;
+    StreamAwaitable stream_;
+    Predicate predicate_;
     bool skipping_{true};
 
     using result_type = stream_awaitable_result_t<StreamAwaitable>;
     using state_type = stream_awaitable_state<result_type>;
 
   public:
-    skip_while_stream_awaitable(StreamAwaitable&& stream, Predicate&& predicate)
-        : stream_(std::forward<StreamAwaitable>(stream)),
-          predicate_(std::forward<Predicate>(predicate)) {}
+    skip_while_stream_awaitable(StreamAwaitable stream, Predicate predicate)
+        : stream_(std::move(stream)), predicate_(std::move(predicate)) {}
 
     state_type poll_next(const waker& w) {
         while (true) {
@@ -57,28 +56,28 @@ class skip_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitabl
 template<
     stream_awaitable StreamAwaitable,
     detail::skip_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-constexpr auto skip_while(StreamAwaitable&& stream, Predicate&& predicate) {
+constexpr auto skip_while(StreamAwaitable stream, Predicate predicate) {
     return skip_while_stream_awaitable<StreamAwaitable, Predicate>(
-        std::forward<StreamAwaitable>(stream), std::forward<Predicate>(predicate)
+        std::move(stream), std::move(predicate)
     );
 }
 
 template<typename Predicate>
 struct skip_while_stream_composable {
-    std::decay_t<Predicate> predicate_;
+    Predicate predicate_;
 };
 
 template<
     stream_awaitable StreamAwaitable,
     detail::skip_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-auto operator|(StreamAwaitable&& stream, skip_while_stream_composable<Predicate>&& composable) {
+auto operator|(StreamAwaitable stream, skip_while_stream_composable<Predicate> composable) {
     return skip_while_stream_awaitable<StreamAwaitable, Predicate>(
-        std::forward<StreamAwaitable>(stream), std::forward<Predicate>(composable.predicate_)
+        std::move(stream), std::move(composable.predicate_)
     );
 }
 
 template<typename Predicate>
-constexpr auto skip_while(Predicate&& predicate) {
-    return skip_while_stream_composable<Predicate>(std::forward<Predicate>(predicate));
+constexpr auto skip_while(Predicate predicate) {
+    return skip_while_stream_composable<Predicate>(std::move(predicate));
 }
 }  // namespace pollcoro

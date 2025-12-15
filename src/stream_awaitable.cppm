@@ -3,6 +3,7 @@ module;
 #include <concepts>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 export module pollcoro:stream_awaitable;
 
@@ -40,7 +41,7 @@ class stream_awaitable_state {
     }
 
     T take_result() {
-        return std::move(*result_);
+        return *std::exchange(result_, std::nullopt);
     }
 
     template<typename Func>

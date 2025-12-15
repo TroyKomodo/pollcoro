@@ -16,7 +16,7 @@ import :waker;
 export namespace pollcoro {
 template<stream_awaitable StreamAwaitable, size_t N>
 class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
-    std::decay_t<StreamAwaitable> stream_;
+    StreamAwaitable stream_;
 
     using result_type = std::array<stream_awaitable_result_t<StreamAwaitable>, N>;
     using state_type = stream_awaitable_state<result_type>;
@@ -25,8 +25,7 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     size_t index_{0};
 
   public:
-    window_stream_awaitable(StreamAwaitable&& stream)
-        : stream_(std::forward<StreamAwaitable>(stream)) {}
+    window_stream_awaitable(StreamAwaitable stream) : stream_(std::move(stream)) {}
 
     state_type poll_next(const waker& w) {
         while (true) {
@@ -57,8 +56,8 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 };
 
 template<size_t N, stream_awaitable StreamAwaitable>
-constexpr auto window(StreamAwaitable&& stream) {
-    return window_stream_awaitable<StreamAwaitable, N>(std::forward<StreamAwaitable>(stream));
+constexpr auto window(StreamAwaitable stream) {
+    return window_stream_awaitable<StreamAwaitable, N>(std::move(stream));
 }
 
 template<size_t N>
@@ -70,7 +69,7 @@ constexpr auto window() {
 }
 
 template<size_t N, stream_awaitable StreamAwaitable>
-auto operator|(StreamAwaitable&& stream, window_stream_composable<N>&& composable) {
-    return window_stream_awaitable<StreamAwaitable, N>(std::forward<StreamAwaitable>(stream));
+auto operator|(StreamAwaitable stream, window_stream_composable<N> composable) {
+    return window_stream_awaitable<StreamAwaitable, N>(std::move(stream));
 }
 }  // namespace pollcoro

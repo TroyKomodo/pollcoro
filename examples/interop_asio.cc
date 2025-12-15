@@ -107,7 +107,7 @@ class from_asio_awaitable : public pollcoro::awaitable_always_blocks {
     using state_type = detail::asio_shared_state<T>;
     std::shared_ptr<state_type> state_;
     asio::any_io_executor executor_;
-    std::decay_t<Factory> factory_;
+    Factory factory_;
 
   public:
     from_asio_awaitable(asio::any_io_executor executor, Factory&& factory)
@@ -213,23 +213,19 @@ auto from_asio(asio::io_context& ctx, Factory&& factory) {
 ///   }
 template<pollcoro::awaitable Awaitable, typename CompletionToken>
 auto to_asio(asio::any_io_executor executor, Awaitable&& aw, CompletionToken&& token) {
-    using result_type = pollcoro::awaitable_result_t<std::decay_t<Awaitable>>;
+    using result_type = pollcoro::awaitable_result_t<Awaitable>;
     using signature = detail::poll_signature_t<result_type>;
 
     return asio::async_initiate<CompletionToken, signature>(
-        [executor](auto handler, std::decay_t<Awaitable> awaitable) mutable {
+        [executor](auto handler, Awaitable awaitable) mutable {
             struct op_state {
-                std::decay_t<Awaitable> awaitable;
+                Awaitable awaitable;
                 asio::any_io_executor executor;
-                std::decay_t<decltype(handler)> handler_;
+                decltype(handler) handler_;
                 std::atomic<bool> wake_pending{true};
                 bool polling{false};
 
-                op_state(
-                    std::decay_t<Awaitable> aw,
-                    asio::any_io_executor exec,
-                    std::decay_t<decltype(handler)> h
-                )
+                op_state(Awaitable aw, asio::any_io_executor exec, decltype(handler) h)
                     : awaitable(std::move(aw)), executor(std::move(exec)), handler_(std::move(h)) {}
 
                 void poll() {

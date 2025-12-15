@@ -182,6 +182,7 @@ The `examples/` directory contains several demonstrations:
 * link:examples/interop_cppcoro.cc[interop_cppcoro.cc] — Bidirectional interop with cppcoro using `to_pollable` and `to_resumable`
 * link:examples/interop_asio.cc[interop_asio.cc] — Bidirectional interop with ASIO (adapters defined in example)
 * link:examples/cxx_cppcoro_interop.cc[cxx_cppcoro_interop.cc] — Low-level manual interop with cppcoro via C API
+* link:examples/reference.cc[reference.cc] — Using `ref` to poll a task without consuming it
 * link:examples/allocator.cc[allocator.cc] — Custom allocators for coroutine frame allocation
 
 == Core Concepts
@@ -742,6 +743,41 @@ pollcoro::stream<int> my_stream = /* ... */;
 auto ref_stream = pollcoro::ref(my_stream);  // reference to stream
 ----
 
+==== Awaitable Resolution
+
+`ref` automatically resolves the underlying awaitable from various wrapper types. It tries these accessors in order:
+
+1. **Direct awaitable** — if the type itself has a `poll()` method, use it directly
+2. **Dereferenceable** — if the type supports `*t` (like `std::shared_ptr`, `std::unique_ptr`, raw pointers), dereference to get the awaitable
+3. **`.get()` method** — if the type has a `.get()` method (like `std::reference_wrapper`), call it to get the awaitable
+
+[source,cpp]
+----
+// Direct reference
+pollcoro::task<int> task = some_task();
+co_await pollcoro::ref(task);
+
+// Via std::reference_wrapper
+auto wrapper = std::ref(task);
+co_await pollcoro::ref(wrapper);
+
+// Via shared_ptr
+auto ptr = std::make_shared<pollcoro::task<int>>(some_task());
+co_await pollcoro::ref(ptr);
+
+// Via unique_ptr
+auto uptr = std::make_unique<pollcoro::task<int>>(some_task());
+co_await pollcoro::ref(uptr);
+
+// Via raw pointer
+pollcoro::task<int>* raw = &task;
+co_await pollcoro::ref(raw);
+----
+
+The same resolution logic applies to streams via `poll_next()`.
+
+==== Lifetime Requirements
+
 WARNING: The `ref` wrapper holds a raw reference to the original awaitable. The original awaitable **must outlive** the ref wrapper — using a ref after the original is destroyed is undefined behavior. Additionally, when polling through a ref, the waker passed to `poll()` must remain valid for as long as the referenced awaitable might call it.
 
 [source,cpp]
@@ -1238,8 +1274,24 @@ auto some_task = /* ... */;
 
 auto result = some_task.poll(pollcoro::waker(my_waker));
 // do something with the result
-
 ----
+
+==== Comparing Wakers
+
+You can compare two wakers to check if they would wake the same target:
+
+[source,cpp]
+----
+pollcoro::waker w1 = /* ... */;
+pollcoro::waker w2 = /* ... */;
+
+if (w1.will_wake(w2)) {
+    // Both wakers point to the same wake target
+    // Useful to avoid redundant waker updates
+}
+----
+
+This is useful for optimization — if the new waker would wake the same target as the stored one, you can skip updating it.
 
 ==== Waker Lifetimes
 

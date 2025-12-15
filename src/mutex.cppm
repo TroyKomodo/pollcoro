@@ -1,12 +1,12 @@
 module;
 
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <utility>
-#include <atomic>
 
 export module pollcoro:mutex;
 
@@ -61,13 +61,12 @@ struct mutex_state {
 class mutex_guard {
     detail::mutex_state* state_;
 
-    explicit mutex_guard(detail::mutex_state* state)
-        : state_(state) {}
+    explicit mutex_guard(detail::mutex_state* state) : state_(state) {}
 
     friend class mutex_lock_awaitable;
     friend class mutex;
-  public:
 
+  public:
     mutex_guard(mutex_guard&& other) noexcept : state_(std::exchange(other.state_, nullptr)) {}
 
     mutex_guard& operator=(mutex_guard&& other) noexcept {
@@ -125,8 +124,7 @@ class mutex_lock_awaitable : public awaitable_always_blocks {
     using state_type = awaitable_state<result_type>;
 
   public:
-    explicit mutex_lock_awaitable(detail::mutex_state* state)
-        : state_(state) {}
+    explicit mutex_lock_awaitable(detail::mutex_state* state) : state_(state) {}
 
     mutex_lock_awaitable(mutex_lock_awaitable&& other) noexcept
         : state_(std::exchange(other.state_, nullptr)),
@@ -165,7 +163,7 @@ class mutex_lock_awaitable : public awaitable_always_blocks {
                 state_->locked_ = true;
                 return state_type::ready(mutex_guard(std::exchange(state_, nullptr)));
             }
-            
+
             registered_ = true;
             state_->waiters_.push_back(waiter_);
             return state_type::pending();
@@ -230,4 +228,3 @@ class mutex {
 };
 
 }  // namespace pollcoro
-

@@ -40,6 +40,9 @@ class nth_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 };
 
 template<stream_awaitable StreamAwaitable>
+nth_stream_awaitable(StreamAwaitable&) -> nth_stream_awaitable<StreamAwaitable>;
+
+template<stream_awaitable StreamAwaitable>
 constexpr auto nth(StreamAwaitable& stream, size_t n) {
     return nth_stream_awaitable<StreamAwaitable>(stream, n);
 }

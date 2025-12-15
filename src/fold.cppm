@@ -30,9 +30,9 @@ template<
     detail::stream_fold_function<Accumulator, stream_awaitable_result_t<StreamAwaitable>>
         FoldFunction>
 class fold_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
-    std::decay_t<StreamAwaitable> stream_;
-    std::decay_t<Accumulator> accumulator_;
-    std::decay_t<FoldFunction> fold_function_;
+    StreamAwaitable stream_;
+    Accumulator accumulator_;
+    FoldFunction fold_function_;
 
     using result_type = Accumulator;
     using state_type = awaitable_state<result_type>;
@@ -41,11 +41,11 @@ class fold_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 
   public:
     fold_stream_awaitable(
-        StreamAwaitable&& stream, Accumulator&& accumulator, FoldFunction&& fold_function
+        StreamAwaitable stream, Accumulator accumulator, FoldFunction fold_function
     )
-        : stream_(std::forward<StreamAwaitable>(stream)),
-          accumulator_(std::forward<Accumulator>(accumulator)),
-          fold_function_(std::forward<FoldFunction>(fold_function)) {}
+        : stream_(std::move(stream)),
+          accumulator_(std::move(accumulator)),
+          fold_function_(std::move(fold_function)) {}
 
     state_type poll(const waker& w) {
         auto state = stream_.poll_next(w);
@@ -71,12 +71,17 @@ template<
     typename Accumulator,
     detail::stream_fold_function<Accumulator, stream_awaitable_result_t<StreamAwaitable>>
         FoldFunction>
-constexpr auto
-fold(StreamAwaitable&& stream, Accumulator&& accumulator, FoldFunction&& fold_function) {
-    return fold_stream_awaitable<StreamAwaitable, Accumulator, FoldFunction>(
-        std::forward<StreamAwaitable>(stream),
-        std::forward<Accumulator>(accumulator),
-        std::forward<FoldFunction>(fold_function)
+fold_stream_awaitable(StreamAwaitable, Accumulator, FoldFunction)
+    -> fold_stream_awaitable<StreamAwaitable, Accumulator, FoldFunction>;
+
+template<
+    stream_awaitable StreamAwaitable,
+    typename Accumulator,
+    detail::stream_fold_function<Accumulator, stream_awaitable_result_t<StreamAwaitable>>
+        FoldFunction>
+constexpr auto fold(StreamAwaitable stream, Accumulator accumulator, FoldFunction fold_function) {
+    return fold_stream_awaitable(
+        std::move(stream), std::move(accumulator), std::move(fold_function)
     );
 }
 }  // namespace pollcoro

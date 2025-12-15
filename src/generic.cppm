@@ -35,6 +35,9 @@ class generic_awaitable : public awaitable_always_blocks {
     }
 };
 
+template<awaitable Awaitable>
+generic_awaitable(Awaitable) -> generic_awaitable<awaitable_result_t<Awaitable>>;
+
 template<typename T>
 class generic_stream_awaitable : public awaitable_always_blocks {
     stream_awaitable_state<T> (*poll_next_)(void* awaitable, const waker& w) = nullptr;
@@ -59,14 +62,18 @@ class generic_stream_awaitable : public awaitable_always_blocks {
     }
 };
 
+template<stream_awaitable StreamAwaitable>
+generic_stream_awaitable(StreamAwaitable)
+    -> generic_stream_awaitable<stream_awaitable_result_t<StreamAwaitable>>;
+
 template<awaitable Awaitable>
 auto generic(Awaitable awaitable) {
-    return generic_awaitable<awaitable_result_t<Awaitable>>(std::move(awaitable));
+    return generic_awaitable(std::move(awaitable));
 }
 
 template<stream_awaitable StreamAwaitable>
 auto generic(StreamAwaitable stream) {
-    return generic_stream_awaitable<stream_awaitable_result_t<StreamAwaitable>>(std::move(stream));
+    return generic_stream_awaitable(std::move(stream));
 }
 
 }  // namespace pollcoro

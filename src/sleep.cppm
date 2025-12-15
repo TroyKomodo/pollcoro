@@ -38,7 +38,7 @@ class sleep_awaitable : public awaitable_always_blocks {
 
     std::shared_ptr<shared> shared_;
     bool started_ = false;
-    std::decay_t<Timer> timer_;
+    Timer timer_;
     typename Timer::time_point deadline_;
 
     void reset() {
@@ -51,7 +51,7 @@ class sleep_awaitable : public awaitable_always_blocks {
     }
 
   public:
-    sleep_awaitable(typename Timer::time_point deadline, Timer&& timer)
+    sleep_awaitable(typename Timer::time_point deadline, Timer timer)
         : timer_(std::forward<Timer>(timer)),
           deadline_(deadline),
           shared_(std::make_shared<shared>()) {}

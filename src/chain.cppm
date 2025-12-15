@@ -15,7 +15,7 @@ template<stream_awaitable... StreamAwaitables>
 class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> {
     static_assert(sizeof...(StreamAwaitables) > 0, "chain requires at least one stream");
 
-    std::tuple<std::decay_t<StreamAwaitables>...> streams_;
+    std::tuple<StreamAwaitables...> streams_;
     size_t current_index_{0};
 
     using result_type =
@@ -44,13 +44,12 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
 
     template<stream_awaitable S, stream_awaitable... Ss>
     friend chain_stream_awaitable<S, Ss...>
-    operator|(S&& stream, chain_stream_awaitable<Ss...>&& chain);
+    operator|(S stream, chain_stream_awaitable<Ss...> chain);
 
   public:
-    chain_stream_awaitable(StreamAwaitables&&... streams)
-        : streams_(std::forward<StreamAwaitables>(streams)...) {}
+    chain_stream_awaitable(StreamAwaitables... streams) : streams_(std::move(streams)...) {}
 
-    chain_stream_awaitable(std::tuple<StreamAwaitables...>&& streams)
+    chain_stream_awaitable(std::tuple<StreamAwaitables...> streams)
         : streams_(std::move(streams)) {}
 
     state_type poll_next(const waker& w) {
@@ -59,15 +58,22 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
 };
 
 template<stream_awaitable... StreamAwaitables>
-constexpr auto chain(StreamAwaitables&&... streams) {
-    return chain_stream_awaitable<StreamAwaitables...>(std::forward<StreamAwaitables>(streams)...);
+chain_stream_awaitable(StreamAwaitables...) -> chain_stream_awaitable<StreamAwaitables...>;
+
+template<stream_awaitable... StreamAwaitables>
+chain_stream_awaitable(std::tuple<StreamAwaitables...>)
+    -> chain_stream_awaitable<StreamAwaitables...>;
+
+template<stream_awaitable... StreamAwaitables>
+constexpr auto chain(StreamAwaitables... streams) {
+    return chain_stream_awaitable<StreamAwaitables...>(std::move(streams)...);
 }
 
 template<stream_awaitable StreamAwaitable, stream_awaitable... StreamAwaitables>
 chain_stream_awaitable<StreamAwaitable, StreamAwaitables...>
-operator|(StreamAwaitable&& stream, chain_stream_awaitable<StreamAwaitables...>&& chain) {
-    return chain_stream_awaitable<StreamAwaitable, StreamAwaitables...>(std::tuple_cat(
-        std::make_tuple(std::forward<StreamAwaitable>(stream)), std::move(chain.streams_)
-    ));
+operator|(StreamAwaitable stream, chain_stream_awaitable<StreamAwaitables...> chain) {
+    return chain_stream_awaitable<StreamAwaitable, StreamAwaitables...>(
+        std::tuple_cat(std::make_tuple(std::move(stream)), std::move(chain.streams_))
+    );
 }
 }  // namespace pollcoro
