@@ -21,7 +21,8 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
     using state_type = stream_awaitable_state<result_type>;
 
     template<stream_awaitable S, stream_awaitable... Ss>
-    friend zip_stream_awaitable<S, Ss...> operator|(S stream, zip_stream_awaitable<Ss...> zip);
+    friend zip_stream_awaitable<std::remove_cvref_t<S>, Ss...>
+    operator|(S&& stream, zip_stream_awaitable<Ss...>&& zip);
 
     template<size_t... Is>
     state_type poll_impl(const waker& w, std::index_sequence<Is...>) {
@@ -60,9 +61,9 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
     }
 
   public:
-    zip_stream_awaitable(StreamAwaitables... streams) : streams_(std::move(streams)...) {}
+    zip_stream_awaitable(StreamAwaitables&&... streams) : streams_(std::move(streams)...) {}
 
-    explicit zip_stream_awaitable(std::tuple<StreamAwaitables...> streams)
+    explicit zip_stream_awaitable(std::tuple<StreamAwaitables...>&& streams)
         : streams_(std::move(streams)) {}
 
     state_type poll_next(const waker& w) {
@@ -71,14 +72,14 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
 };
 
 template<stream_awaitable... StreamAwaitables>
-constexpr auto zip(StreamAwaitables... streams) {
-    return zip_stream_awaitable<StreamAwaitables...>(std::move(streams)...);
+constexpr auto zip(StreamAwaitables&&... streams) {
+    return zip_stream_awaitable<std::remove_cvref_t<StreamAwaitables>...>(std::move(streams)...);
 }
 
 template<stream_awaitable StreamAwaitable, stream_awaitable... StreamAwaitables>
-zip_stream_awaitable<StreamAwaitable, StreamAwaitables...>
-operator|(StreamAwaitable stream, zip_stream_awaitable<StreamAwaitables...> zip) {
-    return zip_stream_awaitable<StreamAwaitable, StreamAwaitables...>(
+zip_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, StreamAwaitables...>
+operator|(StreamAwaitable&& stream, zip_stream_awaitable<StreamAwaitables...>&& zip) {
+    return zip_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, StreamAwaitables...>(
         std::tuple_cat(std::make_tuple(std::move(stream)), std::move(zip.streams_))
     );
 }

@@ -18,9 +18,9 @@ class generic_awaitable : public awaitable_always_blocks {
 
   public:
     template<awaitable Awaitable>
-    generic_awaitable(Awaitable awaitable) {
+    generic_awaitable(Awaitable&& awaitable) {
         awaitable_ = {
-            static_cast<void*>(new Awaitable(std::move(awaitable))),
+            static_cast<void*>(new Awaitable(std::forward<Awaitable>(awaitable))),
             [](void* awaitable_ptr) {
                 delete static_cast<Awaitable*>(awaitable_ptr);
             },
@@ -45,7 +45,7 @@ class generic_stream_awaitable : public awaitable_always_blocks {
 
   public:
     template<stream_awaitable StreamAwaitable>
-    generic_stream_awaitable(StreamAwaitable stream) {
+    generic_stream_awaitable(StreamAwaitable&& stream) {
         awaitable_ = {
             static_cast<void*>(new StreamAwaitable(std::move(stream))),
             [](void* stream_ptr) {
@@ -67,12 +67,12 @@ generic_stream_awaitable(StreamAwaitable)
     -> generic_stream_awaitable<stream_awaitable_result_t<StreamAwaitable>>;
 
 template<awaitable Awaitable>
-auto generic(Awaitable awaitable) {
+auto generic(Awaitable&& awaitable) {
     return generic_awaitable(std::move(awaitable));
 }
 
 template<stream_awaitable StreamAwaitable>
-auto generic(StreamAwaitable stream) {
+auto generic(StreamAwaitable&& stream) {
     return generic_stream_awaitable(std::move(stream));
 }
 

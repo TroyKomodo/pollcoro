@@ -21,7 +21,7 @@ class last_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     std::optional<result_type> result_;
 
   public:
-    last_stream_awaitable(StreamAwaitable stream) : stream_(std::move(stream)) {}
+    last_stream_awaitable(StreamAwaitable&& stream) : stream_(std::move(stream)) {}
 
     state_type poll(const waker& w) {
         while (true) {
@@ -42,7 +42,7 @@ template<stream_awaitable StreamAwaitable>
 last_stream_awaitable(StreamAwaitable) -> last_stream_awaitable<StreamAwaitable>;
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto last(StreamAwaitable stream) {
-    return last_stream_awaitable<StreamAwaitable>(std::move(stream));
+constexpr auto last(StreamAwaitable&& stream) {
+    return last_stream_awaitable<std::remove_cvref_t<StreamAwaitable>>(std::move(stream));
 }
 }  // namespace pollcoro

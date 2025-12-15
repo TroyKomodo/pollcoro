@@ -98,7 +98,7 @@ class allocator_aware_awaitable {
     Awaitable awaitable_;
 
   public:
-    allocator_aware_awaitable(Awaitable awaitable)
+    allocator_aware_awaitable(Awaitable&& awaitable)
         : allocator_(current_allocator()), awaitable_(std::move(awaitable)) {}
 
     auto poll(const waker& w) {
@@ -113,7 +113,7 @@ class allocator_aware_stream_awaitable {
     StreamAwaitable stream_awaitable_;
 
   public:
-    allocator_aware_stream_awaitable(StreamAwaitable stream_awaitable)
+    allocator_aware_stream_awaitable(StreamAwaitable&& stream_awaitable)
         : allocator_(current_allocator()), stream_awaitable_(std::move(stream_awaitable)) {}
 
     auto poll_next(const waker& w) {

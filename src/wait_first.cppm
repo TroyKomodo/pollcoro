@@ -23,7 +23,7 @@ class wait_first_awaitable : public awaitable_maybe_blocks<Awaitables...> {
   public:
     using result_type = std::tuple<first_result_t, size_t>;
 
-    explicit wait_first_awaitable(Awaitables... awaitables)
+    explicit wait_first_awaitable(Awaitables&&... awaitables)
         : awaitables_(std::move(awaitables)...) {}
 
     awaitable_state<result_type> poll(const waker& w) {
@@ -91,8 +91,8 @@ auto wait_first(VecType& awaitables) {
 }
 
 template<awaitable... Awaitables>
-auto wait_first(Awaitables... awaitables) {
-    return wait_first_awaitable<Awaitables...>(std::move(awaitables)...);
+auto wait_first(Awaitables&&... awaitables) {
+    return wait_first_awaitable<std::remove_cvref_t<Awaitables>...>(std::move(awaitables)...);
 }
 
 }  // namespace pollcoro

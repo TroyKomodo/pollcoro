@@ -31,7 +31,7 @@ class take_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitabl
     using state_type = stream_awaitable_state<result_type>;
 
   public:
-    take_while_stream_awaitable(StreamAwaitable stream, Predicate predicate)
+    take_while_stream_awaitable(StreamAwaitable&& stream, Predicate&& predicate)
         : stream_(std::move(stream)), predicate_(std::move(predicate)) {}
 
     state_type poll_next(const waker& w) {
@@ -53,11 +53,12 @@ class take_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitabl
 
 template<
     stream_awaitable StreamAwaitable,
-    detail::take_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-constexpr auto take_while(StreamAwaitable stream, Predicate predicate) {
-    return take_while_stream_awaitable<StreamAwaitable, Predicate>(
-        std::move(stream), std::move(predicate)
-    );
+    detail::take_while_predicate<stream_awaitable_result_t<std::remove_cvref_t<StreamAwaitable>>>
+        Predicate>
+constexpr auto take_while(StreamAwaitable&& stream, Predicate&& predicate) {
+    return take_while_stream_awaitable<
+        std::remove_cvref_t<StreamAwaitable>,
+        std::remove_cvref_t<Predicate>>(std::move(stream), std::move(predicate));
 }
 
 template<typename Predicate>
@@ -66,15 +67,16 @@ struct take_while_stream_composable {
 };
 
 template<typename Predicate>
-constexpr auto take_while(Predicate predicate) {
-    return take_while_stream_composable<Predicate>(std::move(predicate));
+constexpr auto take_while(Predicate&& predicate) {
+    return take_while_stream_composable<std::remove_cvref_t<Predicate>>(std::move(predicate));
 }
 
 template<
     stream_awaitable StreamAwaitable,
-    detail::take_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-auto operator|(StreamAwaitable stream, take_while_stream_composable<Predicate> composable) {
-    return take_while_stream_awaitable<StreamAwaitable, Predicate>(
+    detail::take_while_predicate<stream_awaitable_result_t<std::remove_cvref_t<StreamAwaitable>>>
+        Predicate>
+auto operator|(StreamAwaitable&& stream, take_while_stream_composable<Predicate>&& composable) {
+    return take_while_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, Predicate>(
         std::move(stream), std::move(composable.predicate_)
     );
 }

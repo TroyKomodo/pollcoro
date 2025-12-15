@@ -106,7 +106,7 @@ class ref_awaitable : public awaitable_maybe_blocks<detail::awaitable_access_t<A
 
   public:
     template<typename A = AwaitableRef>
-    requires (!std::same_as<std::remove_cvref_t<A>, ref_awaitable>)
+    requires(!std::same_as<std::remove_cvref_t<A>, ref_awaitable>)
     ref_awaitable(A&& awaitable) : awaitable_(std::forward<A>(awaitable)) {}
 
     auto poll(const waker& w) {
@@ -121,7 +121,7 @@ class ref_stream_awaitable
 
   public:
     template<typename S = StreamAwaitableRef>
-    requires (!std::same_as<std::remove_cvref_t<S>, ref_stream_awaitable>)
+    requires(!std::same_as<std::remove_cvref_t<S>, ref_stream_awaitable>)
     ref_stream_awaitable(S&& stream) : stream_(std::forward<S>(stream)) {}
 
     auto poll_next(const waker& w) {

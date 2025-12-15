@@ -21,7 +21,7 @@ class flatten_stream_awaitable
     using state_type = stream_awaitable_state<result_type>;
 
   public:
-    flatten_stream_awaitable(StreamAwaitable stream) : stream_(std::move(stream)) {}
+    flatten_stream_awaitable(StreamAwaitable&& stream) : stream_(std::move(stream)) {}
 
     state_type poll_next(const waker& w) {
         while (true) {
@@ -53,7 +53,7 @@ template<stream_awaitable StreamAwaitable>
 flatten_stream_awaitable(StreamAwaitable) -> flatten_stream_awaitable<StreamAwaitable>;
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto flatten(StreamAwaitable stream) {
+constexpr auto flatten(StreamAwaitable&& stream) {
     return flatten_stream_awaitable(std::move(stream));
 }
 
@@ -64,7 +64,7 @@ constexpr auto flatten() {
 }
 
 template<stream_awaitable StreamAwaitable>
-auto operator|(StreamAwaitable stream, flatten_stream_composable flatten) {
+auto operator|(StreamAwaitable&& stream, flatten_stream_composable flatten) {
     return flatten_stream_awaitable(std::move(stream));
 }
 }  // namespace pollcoro

@@ -41,7 +41,7 @@ class fold_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 
   public:
     fold_stream_awaitable(
-        StreamAwaitable stream, Accumulator accumulator, FoldFunction fold_function
+        StreamAwaitable&& stream, Accumulator&& accumulator, FoldFunction&& fold_function
     )
         : stream_(std::move(stream)),
           accumulator_(std::move(accumulator)),
@@ -77,9 +77,11 @@ fold_stream_awaitable(StreamAwaitable, Accumulator, FoldFunction)
 template<
     stream_awaitable StreamAwaitable,
     typename Accumulator,
-    detail::stream_fold_function<Accumulator, stream_awaitable_result_t<StreamAwaitable>>
-        FoldFunction>
-constexpr auto fold(StreamAwaitable stream, Accumulator accumulator, FoldFunction fold_function) {
+    detail::stream_fold_function<
+        std::remove_cvref_t<Accumulator>,
+        stream_awaitable_result_t<std::remove_cvref_t<StreamAwaitable>>> FoldFunction>
+constexpr auto
+fold(StreamAwaitable&& stream, Accumulator&& accumulator, FoldFunction&& fold_function) {
     return fold_stream_awaitable(
         std::move(stream), std::move(accumulator), std::move(fold_function)
     );

@@ -43,13 +43,13 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
     }
 
     template<stream_awaitable S, stream_awaitable... Ss>
-    friend chain_stream_awaitable<S, Ss...>
-    operator|(S stream, chain_stream_awaitable<Ss...> chain);
+    friend chain_stream_awaitable<std::remove_cvref_t<S>, Ss...>
+    operator|(S&& stream, chain_stream_awaitable<Ss...>&& chain);
 
   public:
-    chain_stream_awaitable(StreamAwaitables... streams) : streams_(std::move(streams)...) {}
+    chain_stream_awaitable(StreamAwaitables&&... streams) : streams_(std::move(streams)...) {}
 
-    chain_stream_awaitable(std::tuple<StreamAwaitables...> streams)
+    chain_stream_awaitable(std::tuple<StreamAwaitables...>&& streams)
         : streams_(std::move(streams)) {}
 
     state_type poll_next(const waker& w) {
@@ -65,14 +65,14 @@ chain_stream_awaitable(std::tuple<StreamAwaitables...>)
     -> chain_stream_awaitable<StreamAwaitables...>;
 
 template<stream_awaitable... StreamAwaitables>
-constexpr auto chain(StreamAwaitables... streams) {
-    return chain_stream_awaitable<StreamAwaitables...>(std::move(streams)...);
+constexpr auto chain(StreamAwaitables&&... streams) {
+    return chain_stream_awaitable<std::remove_cvref_t<StreamAwaitables>...>(std::move(streams)...);
 }
 
 template<stream_awaitable StreamAwaitable, stream_awaitable... StreamAwaitables>
-chain_stream_awaitable<StreamAwaitable, StreamAwaitables...>
-operator|(StreamAwaitable stream, chain_stream_awaitable<StreamAwaitables...> chain) {
-    return chain_stream_awaitable<StreamAwaitable, StreamAwaitables...>(
+chain_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, StreamAwaitables...>
+operator|(StreamAwaitable&& stream, chain_stream_awaitable<StreamAwaitables...>&& chain) {
+    return chain_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, StreamAwaitables...>(
         std::tuple_cat(std::make_tuple(std::move(stream)), std::move(chain.streams_))
     );
 }

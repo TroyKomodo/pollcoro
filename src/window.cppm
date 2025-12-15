@@ -25,7 +25,7 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     size_t index_{0};
 
   public:
-    window_stream_awaitable(StreamAwaitable stream) : stream_(std::move(stream)) {}
+    window_stream_awaitable(StreamAwaitable&& stream) : stream_(std::move(stream)) {}
 
     state_type poll_next(const waker& w) {
         while (true) {
@@ -56,8 +56,8 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 };
 
 template<size_t N, stream_awaitable StreamAwaitable>
-constexpr auto window(StreamAwaitable stream) {
-    return window_stream_awaitable<StreamAwaitable, N>(std::move(stream));
+constexpr auto window(StreamAwaitable&& stream) {
+    return window_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, N>(std::move(stream));
 }
 
 template<size_t N>
@@ -69,7 +69,7 @@ constexpr auto window() {
 }
 
 template<size_t N, stream_awaitable StreamAwaitable>
-auto operator|(StreamAwaitable stream, window_stream_composable<N> composable) {
-    return window_stream_awaitable<StreamAwaitable, N>(std::move(stream));
+auto operator|(StreamAwaitable&& stream, window_stream_composable<N> composable) {
+    return window_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, N>(std::move(stream));
 }
 }  // namespace pollcoro

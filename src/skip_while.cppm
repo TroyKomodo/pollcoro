@@ -31,7 +31,7 @@ class skip_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitabl
     using state_type = stream_awaitable_state<result_type>;
 
   public:
-    skip_while_stream_awaitable(StreamAwaitable stream, Predicate predicate)
+    skip_while_stream_awaitable(StreamAwaitable&& stream, Predicate&& predicate)
         : stream_(std::move(stream)), predicate_(std::move(predicate)) {}
 
     state_type poll_next(const waker& w) {
@@ -55,11 +55,12 @@ class skip_while_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitabl
 
 template<
     stream_awaitable StreamAwaitable,
-    detail::skip_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-constexpr auto skip_while(StreamAwaitable stream, Predicate predicate) {
-    return skip_while_stream_awaitable<StreamAwaitable, Predicate>(
-        std::move(stream), std::move(predicate)
-    );
+    detail::skip_while_predicate<stream_awaitable_result_t<std::remove_cvref_t<StreamAwaitable>>>
+        Predicate>
+constexpr auto skip_while(StreamAwaitable&& stream, Predicate&& predicate) {
+    return skip_while_stream_awaitable<
+        std::remove_cvref_t<StreamAwaitable>,
+        std::remove_cvref_t<Predicate>>(std::move(stream), std::move(predicate));
 }
 
 template<typename Predicate>
@@ -69,15 +70,16 @@ struct skip_while_stream_composable {
 
 template<
     stream_awaitable StreamAwaitable,
-    detail::skip_while_predicate<stream_awaitable_result_t<StreamAwaitable>> Predicate>
-auto operator|(StreamAwaitable stream, skip_while_stream_composable<Predicate> composable) {
-    return skip_while_stream_awaitable<StreamAwaitable, Predicate>(
+    detail::skip_while_predicate<stream_awaitable_result_t<std::remove_cvref_t<StreamAwaitable>>>
+        Predicate>
+auto operator|(StreamAwaitable&& stream, skip_while_stream_composable<Predicate>&& composable) {
+    return skip_while_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, Predicate>(
         std::move(stream), std::move(composable.predicate_)
     );
 }
 
 template<typename Predicate>
-constexpr auto skip_while(Predicate predicate) {
-    return skip_while_stream_composable<Predicate>(std::move(predicate));
+constexpr auto skip_while(Predicate&& predicate) {
+    return skip_while_stream_composable<std::remove_cvref_t<Predicate>>(std::move(predicate));
 }
 }  // namespace pollcoro

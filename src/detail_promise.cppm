@@ -50,14 +50,14 @@ class stream_storage : public promise_base {
     void return_void() {}
 
     template<stream_awaitable StreamAwaitable>
-    auto yield_value(StreamAwaitable stream_awaitable) {
+    auto yield_value(StreamAwaitable&& stream_awaitable) {
         using result_type = stream_awaitable_result_t<StreamAwaitable>;
 
         struct transformed_promise {
             stream_storage& promise;
             StreamAwaitable stream_awaitable;
 
-            transformed_promise(stream_storage& promise, StreamAwaitable stream_awaitable)
+            transformed_promise(stream_storage& promise, StreamAwaitable&& stream_awaitable)
                 : promise(promise), stream_awaitable(std::move(stream_awaitable)) {}
 
             constexpr bool await_ready() {
@@ -110,14 +110,14 @@ class stream_storage : public promise_base {
 };
 
 template<typename promise_type, awaitable Awaitable>
-auto transform_awaitable(promise_type& promise, Awaitable awaitable) {
+auto transform_awaitable(promise_type& promise, Awaitable&& awaitable) {
     using result_type = awaitable_result_t<Awaitable>;
 
     struct transformed_promise : task_storage<result_type> {
         promise_type& promise;
         Awaitable awaitable;
 
-        transformed_promise(promise_type& promise, Awaitable awaitable)
+        transformed_promise(promise_type& promise, Awaitable&& awaitable)
             : promise(promise), awaitable(std::move(awaitable)) {}
 
         constexpr bool await_ready() {
@@ -207,8 +207,10 @@ struct promise_type : public storage {
     }
 
     template<awaitable Awaitable>
-    auto await_transform(Awaitable awaitable) {
-        return transform_awaitable<promise_type, Awaitable>(*this, std::move(awaitable));
+    auto await_transform(Awaitable&& awaitable) {
+        return transform_awaitable<promise_type, std::remove_cvref_t<Awaitable>>(
+            *this, std::move(awaitable)
+        );
     }
 };
 

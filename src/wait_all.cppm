@@ -97,7 +97,8 @@ class wait_all_awaitable : public awaitable_maybe_blocks<Awaitables...> {
   public:
     using result_type = detail::wait_all_result_t<Awaitables...>;
 
-    explicit wait_all_awaitable(Awaitables... awaitables) : awaitables_(std::move(awaitables)...) {}
+    explicit wait_all_awaitable(Awaitables&&... awaitables)
+        : awaitables_(std::move(awaitables)...) {}
 
     awaitable_state<result_type> poll(const waker& w) {
         bool all_ready = poll_all(w, std::index_sequence_for<Awaitables...>{});
@@ -239,8 +240,8 @@ auto wait_all(VecType& awaitables) {
 }
 
 template<awaitable... Awaitables>
-auto wait_all(Awaitables... awaitables) {
-    return wait_all_awaitable<Awaitables...>(std::move(awaitables)...);
+auto wait_all(Awaitables&&... awaitables) {
+    return wait_all_awaitable<std::remove_cvref_t<Awaitables>...>(std::move(awaitables)...);
 }
 
 }  // namespace pollcoro

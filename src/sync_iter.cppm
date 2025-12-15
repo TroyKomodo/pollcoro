@@ -84,7 +84,7 @@ class sync_iter_stream_iterator {
         }
     };
 
-    explicit sync_iter_stream_iterator(StreamAwaitable stream) : stream_(std::move(stream)) {
+    explicit sync_iter_stream_iterator(StreamAwaitable&& stream) : stream_(std::move(stream)) {
         // Fetch the first element
         advance();
     }
@@ -99,8 +99,8 @@ class sync_iter_stream_iterator {
 };
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto sync_iter(StreamAwaitable stream) {
-    return sync_iter_stream_iterator<StreamAwaitable>(std::move(stream));
+constexpr auto sync_iter(StreamAwaitable&& stream) {
+    return sync_iter_stream_iterator<std::remove_cvref_t<StreamAwaitable>>(std::move(stream));
 }
 
 }  // namespace pollcoro

@@ -128,7 +128,7 @@ struct resumable_promise_storage<void> {
 }  // namespace detail
 
 template<co_awaitable Resumable>
-auto to_pollable(Resumable resumable) {
+auto to_pollable(Resumable&& resumable) {
     using result_type = co_await_result_t<Resumable>;
     using shared_state_t = detail::resumable_shared_state<result_type>;
     auto state = std::make_shared<shared_state_t>();
@@ -203,7 +203,7 @@ auto to_pollable(Resumable resumable) {
 }
 
 template<awaitable Awaitable, co_scheduler Scheduler>
-auto to_resumable(Awaitable awaitable, Scheduler&& scheduler) {
+auto to_resumable(Awaitable&& awaitable, Scheduler&& scheduler) {
     using result_type = awaitable_result_t<Awaitable>;
 
     struct task_t {
@@ -285,7 +285,8 @@ auto to_resumable(Awaitable awaitable, Scheduler&& scheduler) {
         }
     };
 
-    auto coro = [](Awaitable inner_awaitable, Scheduler&& scheduler) -> task_t {
+    auto coro = [](std::remove_cvref_t<Awaitable> inner_awaitable,
+                   Scheduler&& scheduler) -> task_t {
         struct poll_awaiter {
             Awaitable& awaitable;
             mutable awaitable_state<result_type> state;
