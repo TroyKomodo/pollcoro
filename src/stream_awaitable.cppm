@@ -77,17 +77,15 @@ struct stream_awaitable_state_traits<stream_awaitable_state<T>> {
     using result_type = T;
 };
 
+template<typename T>
+concept is_stream_awaitable_state = is_stream_awaitable_state_v<T>;
+
 }  // namespace detail
 
 template<typename T>
-concept stream_awaitable =
-    requires(T t, const waker& w) {
-        {
-            t.poll_next(w)
-        } -> std::same_as<stream_awaitable_state<typename decltype(t.poll_next(w))::result_type>>;
-    } &&
-    detail::is_stream_awaitable_state_v<
-        decltype(std::declval<T>().poll_next(std::declval<const waker&>()))>;
+concept stream_awaitable = std::move_constructible<T> && requires(T t, const waker& w) {
+    { t.poll_next(w) } -> detail::is_stream_awaitable_state;
+};
 
 template<stream_awaitable T>
 using stream_awaitable_result_t = typename detail::stream_awaitable_state_traits<

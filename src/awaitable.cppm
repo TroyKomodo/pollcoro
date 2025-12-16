@@ -104,7 +104,7 @@ concept is_awaitable_state = is_awaitable_state_v<T>;
 }  // namespace detail
 
 template<typename T>
-concept awaitable = requires(T t, const waker& w) {
+concept awaitable = std::move_constructible<T> && requires(T t, const waker& w) {
     { t.poll(w) } -> detail::is_awaitable_state;
 };
 

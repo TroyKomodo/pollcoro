@@ -1,6 +1,7 @@
 module;
 
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 export module pollcoro:generic;
@@ -17,7 +18,10 @@ class generic_awaitable : public awaitable_always_blocks {
     std::unique_ptr<void, void (*)(void*)> awaitable_ = {nullptr, nullptr};
 
   public:
-    template<awaitable Awaitable>
+    template<typename Awaitable>
+    requires(
+        !std::is_same_v<std::remove_cvref_t<Awaitable>, generic_awaitable> && awaitable<Awaitable>
+    )
     generic_awaitable(Awaitable&& awaitable) {
         awaitable_ = {
             static_cast<void*>(new Awaitable(std::forward<Awaitable>(awaitable))),
@@ -44,7 +48,11 @@ class generic_stream_awaitable : public awaitable_always_blocks {
     std::unique_ptr<void, void (*)(void*)> awaitable_ = {nullptr, nullptr};
 
   public:
-    template<stream_awaitable StreamAwaitable>
+    template<typename StreamAwaitable>
+    requires(
+        !std::is_same_v<std::remove_cvref_t<StreamAwaitable>, generic_stream_awaitable> &&
+        stream_awaitable<StreamAwaitable>
+    )
     generic_stream_awaitable(StreamAwaitable&& stream) {
         awaitable_ = {
             static_cast<void*>(new StreamAwaitable(std::move(stream))),

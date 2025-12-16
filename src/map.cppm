@@ -23,11 +23,6 @@ class map_awaitable : public awaitable_maybe_blocks<Awaitable> {
     map_awaitable(Awaitable&& awaitable, Func&& func)
         : awaitable(std::move(awaitable)), func(std::move(func)) {}
 
-    map_awaitable(const map_awaitable&) = delete;
-    map_awaitable& operator=(const map_awaitable&) = delete;
-    map_awaitable(map_awaitable&&) = default;
-    map_awaitable& operator=(map_awaitable&&) = default;
-
     state_type poll(const waker& w) {
         return awaitable.poll(w).map(func);
     }
@@ -45,11 +40,6 @@ class map_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     map_stream_awaitable(StreamAwaitable&& stream, Func&& func)
         : stream_(std::move(stream)), func(std::move(func)) {}
 
-    map_stream_awaitable(const map_stream_awaitable&) = delete;
-    map_stream_awaitable& operator=(const map_stream_awaitable&) = delete;
-    map_stream_awaitable(map_stream_awaitable&&) = default;
-    map_stream_awaitable& operator=(map_stream_awaitable&&) = default;
-
     state_type poll_next(const waker& w) {
         return stream_.poll_next(w).map(func);
     }
@@ -61,11 +51,6 @@ class map_composable {
     Func func;
 
     map_composable(Func&& func) : func(std::move(func)) {}
-
-    map_composable(const map_composable&) = delete;
-    map_composable& operator=(const map_composable&) = delete;
-    map_composable(map_composable&&) = default;
-    map_composable& operator=(map_composable&&) = default;
 };
 
 template<awaitable Awaitable, typename Func>

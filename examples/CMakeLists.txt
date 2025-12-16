@@ -105,3 +105,7 @@ set_target_properties(mutex PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MODULES ON)
 add_executable(reference reference.cc)
 target_link_libraries(reference PRIVATE pollcoro::pollcoro)
 set_target_properties(reference PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MODULES ON)
+
+add_executable(map map.cc)
+target_link_libraries(map PRIVATE pollcoro::pollcoro)
+set_target_properties(map PROPERTIES CXX_STANDARD 20 CXX_SCAN_FOR_MODULES ON)
