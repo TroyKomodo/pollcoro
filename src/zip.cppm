@@ -1,11 +1,17 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <cstddef>
 #include <optional>
 #include <tuple>
 #include <utility>
+#endif
 
 export module pollcoro:zip;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :is_blocking;
 import :stream_awaitable;

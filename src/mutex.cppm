@@ -1,5 +1,6 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <algorithm>
 #include <atomic>
 #include <deque>
@@ -7,8 +8,13 @@ module;
 #include <mutex>
 #include <optional>
 #include <utility>
+#endif
 
 export module pollcoro:mutex;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :is_blocking;

@@ -1,8 +1,14 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <utility>
+#endif
 
 export module pollcoro:ready;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :is_blocking;

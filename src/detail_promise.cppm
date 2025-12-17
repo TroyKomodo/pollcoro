@@ -1,13 +1,19 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <coroutine>
 #include <cstdio>
 #include <exception>
 #include <optional>
 #include <type_traits>
 #include <utility>
+#endif
 
 export module pollcoro:detail_promise;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :allocator;
 import :awaitable;

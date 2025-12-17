@@ -1,5 +1,6 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <atomic>
 #include <coroutine>
 #include <memory>
@@ -7,8 +8,13 @@ module;
 #include <type_traits>
 #include <utility>
 #include <variant>
+#endif
 
 export module pollcoro:resumable;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :co_awaitable;

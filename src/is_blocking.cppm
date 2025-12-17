@@ -1,8 +1,14 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <concepts>
+#endif
 
 export module pollcoro:is_blocking;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 export namespace pollcoro {
 namespace detail {

@@ -1,10 +1,16 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <concepts>
 #include <type_traits>
 #include <utility>
+#endif
 
 export module pollcoro:co_awaitable;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 export namespace pollcoro {
 namespace detail {

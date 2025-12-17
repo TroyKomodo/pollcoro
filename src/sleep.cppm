@@ -1,13 +1,19 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <concepts>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <type_traits>
 #include <utility>
+#endif
 
 export module pollcoro:sleep;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :is_blocking;

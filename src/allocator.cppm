@@ -1,11 +1,17 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <concepts>
 #include <cstddef>
 #include <functional>
 #include <new>
+#endif
 
 export module pollcoro:allocator;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :stream_awaitable;

@@ -1,10 +1,16 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <coroutine>
 #include <exception>
 #include <utility>
+#endif
 
 export module pollcoro:stream;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :detail_promise;
 import :is_blocking;

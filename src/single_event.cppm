@@ -1,5 +1,6 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <concepts>
 #include <memory>
 #include <mutex>
@@ -8,8 +9,13 @@ module;
 #include <type_traits>
 #include <utility>
 #include <variant>
+#endif
 
 export module pollcoro:single_event;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :is_blocking;

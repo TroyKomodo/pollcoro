@@ -1,11 +1,17 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <cstddef>
 #include <iterator>
 #include <optional>
 #include <utility>
+#endif
 
 export module pollcoro:sync_iter;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :stream_awaitable;
 import :waker;

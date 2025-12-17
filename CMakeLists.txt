@@ -9,6 +9,7 @@ project(pollcoro
 option(POLLCORO_INSTALL "Generate install targets" ${PROJECT_IS_TOP_LEVEL})
 option(POLLCORO_TESTS "Enable tests" ${PROJECT_IS_TOP_LEVEL})
 option(POLLCORO_EXAMPLES "Enable examples" ${PROJECT_IS_TOP_LEVEL})
+option(POLLCORO_IMPORT_STD "Import std" OFF)
 
 if(PROJECT_IS_TOP_LEVEL)
    option(ADDRESS_SANITIZER "Enable address sanitizer" OFF)
@@ -93,6 +94,11 @@ target_sources(pollcoro
             # Interop
             ${CMAKE_CURRENT_SOURCE_DIR}/src/co_awaitable.cppm
             ${CMAKE_CURRENT_SOURCE_DIR}/src/resumable.cppm
+)
+
+target_compile_definitions(pollcoro
+    PUBLIC
+        POLLCORO_IMPORT_STD=${POLLCORO_IMPORT_STD}
 )
 
 # -----------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 module;
 
+#if !defined(POLLCORO_IMPORT_STD) || POLLCORO_IMPORT_STD == 0
 #include <cstddef>
 #include <functional>
 #include <iterator>
@@ -10,8 +11,13 @@ module;
 #include <utility>
 #include <variant>
 #include <vector>
+#endif
 
 export module pollcoro:wait_all;
+
+#if defined(POLLCORO_IMPORT_STD) && POLLCORO_IMPORT_STD == 1
+import std;
+#endif
 
 import :awaitable;
 import :is_blocking;
