@@ -16,12 +16,12 @@ import :waker;
 
 export namespace pollcoro {
 class yield_awaitable : public awaitable_always_blocks {
-    uint32_t ready_{0};
+    std::size_t ready_{0};
 
   public:
     yield_awaitable() : yield_awaitable(1) {}
 
-    explicit yield_awaitable(uint32_t ready) : ready_(ready) {}
+    explicit yield_awaitable(std::size_t ready) : ready_(ready) {}
 
     awaitable_state<> poll(const waker& w) {
         if (ready_ > 0) {
@@ -32,7 +32,7 @@ class yield_awaitable : public awaitable_always_blocks {
     }
 };
 
-inline auto yield(uint32_t ready = 1) {
+inline auto yield(std::size_t ready = 1) {
     return yield_awaitable(ready);
 }
 

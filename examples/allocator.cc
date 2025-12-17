@@ -6,7 +6,7 @@
 
 import pollcoro;
 
-template<size_t BlockSize, size_t BlockCount>
+template<std::size_t BlockSize, std::size_t BlockCount>
 class bitmap_allocator {
     alignas(std::max_align_t) std::byte data_[BlockSize * BlockCount];
     static constexpr size_t BitmapSize = (BlockCount + 63) / 64;

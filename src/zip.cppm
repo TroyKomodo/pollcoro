@@ -30,12 +30,12 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
     friend zip_stream_awaitable<std::remove_cvref_t<S>, Ss...>
     operator|(S&& stream, zip_stream_awaitable<Ss...>&& zip);
 
-    template<size_t... Is>
+    template<std::size_t... Is>
     state_type poll_impl(const waker& w, std::index_sequence<Is...>) {
         bool any_pending = false;
         bool any_done = false;
 
-        auto poll_one = [&]<size_t I>(std::integral_constant<size_t, I>) {
+        auto poll_one = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
             // Already have a buffered value for this stream
             if (std::get<I>(buffered_).has_value()) {
                 return;
@@ -51,7 +51,7 @@ class zip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...> 
             }
         };
 
-        (poll_one(std::integral_constant<size_t, Is>{}), ...);
+        (poll_one(std::integral_constant<std::size_t, Is>{}), ...);
 
         if (any_done) {
             return state_type::done();

@@ -184,7 +184,7 @@ struct promise_type : public storage {
         return alloc_;
     }
 
-    static void* operator new(size_t size) {
+    static void* operator new(std::size_t size) {
         return current_allocator().allocate(size);
     }
 

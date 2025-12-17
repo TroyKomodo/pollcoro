@@ -20,9 +20,9 @@ export namespace pollcoro {
 template<stream_awaitable StreamAwaitable>
 class enumerate_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     StreamAwaitable stream_;
-    size_t index_{0};
+    std::size_t index_{0};
 
-    using result_type = std::pair<size_t, stream_awaitable_result_t<StreamAwaitable>>;
+    using result_type = std::pair<std::size_t, stream_awaitable_result_t<StreamAwaitable>>;
     using state_type = stream_awaitable_state<result_type>;
 
   public:
@@ -49,9 +49,9 @@ constexpr auto enumerate(StreamAwaitable&& stream) {
 }
 
 class enumerate_stream_composable : public awaitable_never_blocks {
-    size_t index_{0};
+    std::size_t index_{0};
 
-    using state_type = stream_awaitable_state<size_t>;
+    using state_type = stream_awaitable_state<std::size_t>;
 
   public:
     state_type poll_next(const waker& w) {

@@ -20,13 +20,13 @@ export namespace pollcoro {
 template<stream_awaitable StreamAwaitable>
 class skip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     StreamAwaitable stream_;
-    size_t count_;
+    std::size_t count_;
 
     using result_type = stream_awaitable_result_t<StreamAwaitable>;
     using state_type = stream_awaitable_state<result_type>;
 
   public:
-    skip_stream_awaitable(StreamAwaitable&& stream, size_t count)
+    skip_stream_awaitable(StreamAwaitable&& stream, std::size_t count)
         : stream_(std::move(stream)), count_(count) {}
 
     state_type poll_next(const waker& w) {
@@ -51,12 +51,12 @@ class skip_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
 };
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto skip(StreamAwaitable&& stream, size_t count) {
+constexpr auto skip(StreamAwaitable&& stream, std::size_t count) {
     return skip_stream_awaitable<std::remove_cvref_t<StreamAwaitable>>(std::move(stream), count);
 }
 
 struct skip_stream_composable {
-    size_t count_;
+    std::size_t count_;
 };
 
 template<stream_awaitable StreamAwaitable>
@@ -66,7 +66,7 @@ auto operator|(StreamAwaitable&& stream, skip_stream_composable composable) {
     );
 }
 
-constexpr auto skip(size_t count) {
+constexpr auto skip(std::size_t count) {
     return skip_stream_composable(count);
 }
 }  // namespace pollcoro

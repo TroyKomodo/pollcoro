@@ -20,7 +20,7 @@ import :stream_awaitable;
 import :waker;
 
 export namespace pollcoro {
-template<stream_awaitable StreamAwaitable, size_t N>
+template<stream_awaitable StreamAwaitable, std::size_t N>
 class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     StreamAwaitable stream_;
 
@@ -28,7 +28,7 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     using state_type = stream_awaitable_state<result_type>;
 
     std::array<std::optional<stream_awaitable_result_t<StreamAwaitable>>, N> buffer_;
-    size_t index_{0};
+    std::size_t index_{0};
 
   public:
     window_stream_awaitable(StreamAwaitable&& stream) : stream_(std::move(stream)) {}
@@ -45,7 +45,7 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
                 if (index_ == N) {
                     index_ = 0;
                     result_type result;
-                    for (size_t i = 0; i < N; i++) {
+                    for (std::size_t i = 0; i < N; i++) {
                         result[i] = std::move(*buffer_[i]);
                         buffer_[i].reset();
                     }
@@ -61,20 +61,20 @@ class window_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     }
 };
 
-template<size_t N, stream_awaitable StreamAwaitable>
+template<std::size_t N, stream_awaitable StreamAwaitable>
 constexpr auto window(StreamAwaitable&& stream) {
     return window_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, N>(std::move(stream));
 }
 
-template<size_t N>
+template<std::size_t N>
 struct window_stream_composable {};
 
-template<size_t N>
+template<std::size_t N>
 constexpr auto window() {
     return window_stream_composable<N>();
 }
 
-template<size_t N, stream_awaitable StreamAwaitable>
+template<std::size_t N, stream_awaitable StreamAwaitable>
 auto operator|(StreamAwaitable&& stream, window_stream_composable<N> composable) {
     return window_stream_awaitable<std::remove_cvref_t<StreamAwaitable>, N>(std::move(stream));
 }

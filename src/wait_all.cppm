@@ -54,17 +54,17 @@ using wait_all_result_t = filter_void_t<awaitable_result_t<Awaitables>...>;
 template<typename Result>
 struct wait_all_iter_result {
     using type = std::vector<Result>;
-    std::map<size_t, Result, std::less<>> results_{};
+    std::map<std::size_t, Result, std::less<>> results_{};
 
-    void insert(size_t index, Result result) {
+    void insert(std::size_t index, Result result) {
         results_.emplace(index, std::move(result));
     }
 
-    bool has_result(size_t index) const {
+    bool has_result(std::size_t index) const {
         return results_.find(index) != results_.end();
     }
 
-    size_t size() const {
+    std::size_t size() const {
         return results_.size();
     }
 
@@ -81,17 +81,17 @@ struct wait_all_iter_result {
 template<>
 struct wait_all_iter_result<void> {
     using type = void;
-    std::map<size_t, std::monostate, std::less<>> results_{};
+    std::map<std::size_t, std::monostate, std::less<>> results_{};
 
-    void insert(size_t index) {
+    void insert(std::size_t index) {
         results_.emplace(index, std::monostate{});
     }
 
-    bool has_result(size_t index) const {
+    bool has_result(std::size_t index) const {
         return results_.find(index) != results_.end();
     }
 
-    size_t size() const {
+    std::size_t size() const {
         return results_.size();
     }
 };
@@ -129,7 +129,7 @@ class wait_all_awaitable : public awaitable_maybe_blocks<Awaitables...> {
     std::tuple<Awaitables...> awaitables_;
     std::tuple<stored_result_t<Awaitables>...> results_{};
 
-    template<size_t I>
+    template<std::size_t I>
     bool poll_one(const waker& w) {
         auto& awaitable = std::get<I>(awaitables_);
         auto& stored = std::get<I>(results_);
@@ -159,7 +159,7 @@ class wait_all_awaitable : public awaitable_maybe_blocks<Awaitables...> {
         return false;
     }
 
-    template<size_t... Is>
+    template<std::size_t... Is>
     bool poll_all(const waker& w, std::index_sequence<Is...>) {
         // Poll all and check if all are ready
         // Note: we poll ALL of them every time to register wakers
@@ -168,17 +168,17 @@ class wait_all_awaitable : public awaitable_maybe_blocks<Awaitables...> {
     }
 
     // Build the filtered result tuple (excluding void results)
-    template<size_t... Is>
+    template<std::size_t... Is>
     result_type build_result(std::index_sequence<Is...>) {
         return build_result_impl<Is...>();
     }
 
-    template<size_t... Is>
+    template<std::size_t... Is>
     result_type build_result_impl() {
         return std::tuple_cat(get_single_result<Is>()...);
     }
 
-    template<size_t I>
+    template<std::size_t I>
     auto get_single_result() {
         using awaitable_t = std::tuple_element_t<I, std::tuple<Awaitables...>>;
         using result_t = awaitable_result_t<awaitable_t>;
@@ -206,7 +206,7 @@ class wait_all_iter_awaitable
     explicit wait_all_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
     awaitable_state<result_type> poll(const waker& w) {
-        size_t i = 0;
+        std::size_t i = 0;
         for (auto& awaitable : awaitables_) {
             if (results_.has_result(i)) {
                 i++;

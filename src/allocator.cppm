@@ -19,14 +19,14 @@ import :waker;
 
 export namespace pollcoro {
 template<typename Impl>
-concept allocator_impl = requires(Impl& impl, size_t size, void* ptr) {
+concept allocator_impl = requires(Impl& impl, std::size_t size, void* ptr) {
     { impl.allocate(size) } -> std::same_as<void*>;
     { impl.deallocate(ptr) } -> std::same_as<void>;
 };
 
 namespace detail {
 template<allocator_impl Impl>
-void* allocate_impl(void* instance, size_t size) {
+void* allocate_impl(void* instance, std::size_t size) {
     return static_cast<Impl*>(instance)->allocate(size);
 }
 
@@ -37,7 +37,7 @@ void deallocate_impl(void* instance, void* ptr) noexcept {
 }  // namespace detail
 
 class allocator {
-    using allocate_fn = void* (*)(void* instance, size_t size);
+    using allocate_fn = void* (*)(void* instance, std::size_t size);
     using deallocate_fn = void (*)(void* instance, void* ptr) noexcept;
     void* instance_ = nullptr;
     allocate_fn allocate_ = nullptr;
@@ -56,7 +56,7 @@ class allocator {
     template<typename Func, typename... Args>
     auto in_scope(Func&& func, Args&&... args) const;
 
-    void* allocate(size_t size) const {
+    void* allocate(std::size_t size) const {
         return allocate_(instance_, size);
     }
 
@@ -67,7 +67,7 @@ class allocator {
 
 inline allocator default_allocator(
     nullptr,
-    +[](void* instance, size_t size) {
+    +[](void* instance, std::size_t size) {
         return ::operator new(size);
     },
     +[](void* instance, void* ptr) noexcept {

@@ -27,7 +27,7 @@ class wait_first_awaitable : public awaitable_maybe_blocks<Awaitables...> {
     using first_result_t = awaitable_result_t<std::tuple_element_t<0, std::tuple<Awaitables...>>>;
 
   public:
-    using result_type = std::tuple<first_result_t, size_t>;
+    using result_type = std::tuple<first_result_t, std::size_t>;
 
     explicit wait_first_awaitable(Awaitables&&... awaitables)
         : awaitables_(std::move(awaitables)...) {}
@@ -37,14 +37,14 @@ class wait_first_awaitable : public awaitable_maybe_blocks<Awaitables...> {
     }
 
   private:
-    template<size_t I>
+    template<std::size_t I>
     auto try_get_result(const waker& w) {
         return std::get<I>(awaitables_).poll(w).map([](auto result) {
             return std::make_tuple(std::move(result), I);
         });
     }
 
-    template<size_t... Is>
+    template<std::size_t... Is>
     auto get_first_ready_result(std::index_sequence<Is...>, const waker& w) {
         awaitable_state<result_type> result = awaitable_state<result_type>::pending();
         ((result = try_get_result<Is>(w), result.is_ready()) || ...);
@@ -63,12 +63,12 @@ class wait_first_iter_awaitable
     using result_t = awaitable_result_t<Awaitable>;
 
   public:
-    using result_type = std::tuple<result_t, size_t>;
+    using result_type = std::tuple<result_t, std::size_t>;
 
     explicit wait_first_iter_awaitable(VecType& awaitables) : awaitables_(awaitables) {}
 
     awaitable_state<result_type> poll(const waker& w) {
-        size_t i = 0;
+        std::size_t i = 0;
         for (auto& awaitable : awaitables_) {
             auto state = awaitable.poll(w);
             if (state.is_ready()) {

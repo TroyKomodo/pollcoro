@@ -20,13 +20,13 @@ export namespace pollcoro {
 template<stream_awaitable StreamAwaitable>
 class nth_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitable> {
     StreamAwaitable& stream_;
-    size_t n_;
+    std::size_t n_;
 
     using result_type = stream_awaitable_result_t<StreamAwaitable>;
     using state_type = awaitable_state<std::optional<result_type>>;
 
   public:
-    nth_stream_awaitable(StreamAwaitable& stream, size_t n) : stream_(stream), n_(n) {}
+    nth_stream_awaitable(StreamAwaitable& stream, std::size_t n) : stream_(stream), n_(n) {}
 
     state_type poll(const waker& w) {
         while (true) {
@@ -49,11 +49,11 @@ template<stream_awaitable StreamAwaitable>
 nth_stream_awaitable(StreamAwaitable&) -> nth_stream_awaitable<StreamAwaitable>;
 
 template<stream_awaitable StreamAwaitable>
-constexpr auto nth(StreamAwaitable& stream, size_t n) {
+constexpr auto nth(StreamAwaitable& stream, std::size_t n) {
     return nth_stream_awaitable<StreamAwaitable>(stream, n);
 }
 
 struct nth_stream_composable {
-    size_t n_;
+    std::size_t n_;
 };
 }  // namespace pollcoro

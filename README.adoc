@@ -897,12 +897,12 @@ Here's a complete example using a custom slab allocator:
 
 [source,cpp]
 ----
-template<size_t N>
+template<std::size_t N>
 class slab_allocator {
     // ... bitmap-based allocation pools ...
     
 public:
-    void* allocate(size_t size) {
+    void* allocate(std::size_t size) {
         if (size <= 128) return small_pool_.allocate();
         if (size <= 512) return medium_pool_.allocate();
         if (size <= 1024) return large_pool_.allocate();

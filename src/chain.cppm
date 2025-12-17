@@ -22,13 +22,13 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
     static_assert(sizeof...(StreamAwaitables) > 0, "chain requires at least one stream");
 
     std::tuple<StreamAwaitables...> streams_;
-    size_t current_index_{0};
+    std::size_t current_index_{0};
 
     using result_type =
         stream_awaitable_result_t<std::tuple_element_t<0, std::tuple<StreamAwaitables...>>>;
     using state_type = stream_awaitable_state<result_type>;
 
-    template<size_t I>
+    template<std::size_t I>
     state_type poll_stream(const waker& w) {
         auto state = std::get<I>(streams_).poll_next(w);
         if (state.is_done()) {
@@ -41,7 +41,7 @@ class chain_stream_awaitable : public awaitable_maybe_blocks<StreamAwaitables...
         return state;
     }
 
-    template<size_t... Is>
+    template<std::size_t... Is>
     state_type poll_impl(const waker& w, std::index_sequence<Is...>) {
         state_type result = state_type::done();
         std::ignore = ((current_index_ == Is ? (result = poll_stream<Is>(w), true) : false) || ...);
