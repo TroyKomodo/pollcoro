@@ -96,10 +96,11 @@ target_sources(pollcoro
             ${CMAKE_CURRENT_SOURCE_DIR}/src/resumable.cppm
 )
 
-target_compile_definitions(pollcoro
-    PUBLIC
-        POLLCORO_IMPORT_STD=${POLLCORO_IMPORT_STD}
-)
+if(POLLCORO_IMPORT_STD)
+    target_compile_definitions(pollcoro
+        PUBLIC POLLCORO_IMPORT_STD=1
+    )
+endif()
 
 # -----------------------------------------------------------------------------
 # Installation targets
